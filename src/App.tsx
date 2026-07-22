@@ -109,18 +109,6 @@ interface NotificationItem {
 
 const BLURRY_COINS_BG = 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=1200&auto=format&fit=crop&q=80';
 
-const CoinWallpaper = ({ opacity = 0.05 }: { opacity?: number }) => (
-  <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-around px-4 select-none" style={{ opacity }}>
-    <Coins className="w-4 h-4 -rotate-12" />
-    <Coins className="w-3 h-3 rotate-12" />
-    <Coins className="w-5 h-5 -rotate-45" />
-    <Coins className="w-4 h-4 rotate-45" />
-    <Coins className="w-3 h-3 -rotate-12" />
-    <Coins className="w-6 h-6 rotate-12 sm:block hidden" />
-    <Coins className="w-4 h-4 -rotate-90 sm:block hidden" />
-  </div>
-);
-
 const AppNameWithCoins = ({ className = "" }: { className?: string; iconSize?: string }) => (
   <span className={className}>TimeGiG</span>
 );
@@ -752,6 +740,11 @@ export default function App() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    if (!profilePhotoURL) {
+      setToastMessage('⚠️ Please upload a profile picture first');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
     try {
       await updateDoc(doc(db, 'users', user.uid), {
         firstName: profileFirstName,
@@ -763,12 +756,14 @@ export default function App() {
         province: profileProvince,
         location: profileLocation,
         photoURL: profilePhotoURL,
-        isLocked: isProfileLocked,
+        isLocked: true, // Always lock on save as requested
         pin: profilePin
       });
+      setIsProfileLocked(true); // Update local state
+      setActiveScreen('referral');
       setShowProfileCongrats(true);
       setTimeout(() => setShowProfileCongrats(false), 3000);
-      setToastMessage('✅ Profile updated successfully!');
+      setToastMessage('✅ Profile updated and locked!');
       setTimeout(() => setToastMessage(null), 3000);
     } catch (err) {
       console.error("Error saving profile:", err);
@@ -1545,8 +1540,7 @@ export default function App() {
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && (
-        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-100/50 sticky top-0 z-40 bg-white/70 backdrop-blur-md overflow-hidden relative">
-          <CoinWallpaper opacity={0.06} />
+        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-emerald-100/50 sticky top-0 z-40 bg-emerald-50/80 backdrop-blur-md overflow-hidden relative">
           <div className="flex items-center space-x-1 sm:space-x-2 relative z-10">
             {/* Feedback small icon */}
             <button
@@ -2792,10 +2786,10 @@ export default function App() {
                 <div className="pt-4 pb-8">
                   <button
                     onClick={handleSaveProfile}
-                    className="w-full py-4 bg-neutral-900 text-white rounded-2xl font-bold shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center space-x-2"
+                    className="w-full py-4 bg-emerald-600 text-white rounded-2xl font-bold shadow-xl hover:bg-emerald-700 transition-all active:scale-95 flex items-center justify-center space-x-2 border-b-4 border-emerald-800"
                   >
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>SAVE PROFILE DATA</span>
+                    <Lock className="w-5 h-5" />
+                    <span>SAVE PROFILE & LOCK DATA</span>
                   </button>
                 </div>
               </div>
@@ -4075,8 +4069,7 @@ export default function App() {
 
       {/* Bottom Menu Bar with GIGs, Wallet, Chat, and Referral (Hidden on Chat Screen and Signup) */}
       {activeScreen !== 'chat' && activeScreen !== 'signup' && (
-        <nav className="w-full border-t border-neutral-200/80 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/80 backdrop-blur-md overflow-hidden">
-          <CoinWallpaper opacity={0.08} />
+        <nav className="w-full border-t border-emerald-200/80 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-emerald-50/80 backdrop-blur-md overflow-hidden">
           <div className="relative z-10 flex items-center justify-around w-full">
           <button
             onClick={() => {
@@ -4141,11 +4134,18 @@ export default function App() {
               setActiveScreen('profile');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors ${
+            className={`flex flex-col items-center space-y-1 transition-colors relative ${
               activeScreen === 'profile' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
             }`}
           >
-            <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+            <div className="relative">
+              <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              {isProfileLocked && (
+                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm">
+                  <Lock className="w-2.5 h-2.5" />
+                </div>
+              )}
+            </div>
             <span className="text-[11px] sm:text-xs">Profile</span>
           </button>
           </div>
