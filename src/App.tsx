@@ -1168,25 +1168,68 @@ export default function App() {
     setTimeout(() => setCopiedLinkId(null), 2000);
   };
 
+  const [isSubmittingProof, setIsSubmittingProof] = useState(false);
+
   const handleSubmitProof = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedOption) return;
+    if (!selectedOption) {
+      setToastMessage('⚠️ Please select a top-up option');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    if (!proofFile) {
+      setToastMessage('⚠️ Please upload a proof of payment');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
+    if (!user) {
+      setToastMessage('⚠️ Please sign in to submit proof');
+      setTimeout(() => setToastMessage(null), 3000);
+      return;
+    }
 
+    setIsSubmittingProof(true);
     try {
+      // Helper to convert file to base64
+      const fileToBase64 = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = (error) => reject(error);
+        });
+      };
+
+      let fileUrl = '';
+      if (proofFile.size > 1024 * 1024) { // 1MB Limit for Firestore
+        setToastMessage('⚠️ File size too large. Please upload a file smaller than 1MB.');
+        setTimeout(() => setToastMessage(null), 3000);
+        setIsSubmittingProof(false);
+        return;
+      }
+
+      fileUrl = await fileToBase64(proofFile);
+
       const newRecord = {
-        userId: user?.uid || 'anonymous',
-        userEmail: user?.email || 'Anonymous',
+        userId: user.uid,
+        userEmail: user.email || 'Anonymous',
         option: selectedOption,
         date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + new Date().toLocaleDateString(),
-        fileName: proofFile ? proofFile.name : 'proof_of_payment.pdf',
+        fileName: proofFile.name,
+        fileUrl: fileUrl,
         status: 'pending',
         createdAt: serverTimestamp()
       };
 
       await addDoc(collection(db, 'topups'), newRecord);
       setShowReviewPopup(true);
+      setProofFile(null); // Clear after success
     } catch (error) {
       console.error("Error submitting proof:", error);
+      setToastMessage('❌ Error submitting proof. Please try again.');
+      setTimeout(() => setToastMessage(null), 3000);
+    } finally {
+      setIsSubmittingProof(false);
     }
   };
 
@@ -2158,9 +2201,17 @@ export default function App() {
 
                   <button
                     type="submit"
-                    className="w-full py-3.5 bg-black text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors shadow-sm"
+                    disabled={isSubmittingProof}
+                    className="w-full py-3.5 bg-black text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    Submit Proof of Payment
+                    {isSubmittingProof ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <span>Submit Proof of Payment</span>
+                    )}
                   </button>
                 </form>
               </div>
