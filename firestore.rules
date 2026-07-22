@@ -1,94 +1,71 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
     
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() == 'timegig2026@gmail.com'.lower() ||
+        request.auth.token.get('email', '').lower() == 'timegig2026@gmail.com'.lower() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true)
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true)
       );
     }
 
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-    
-    function isEmailOwner(email) {
-      return isSignedIn() && request.auth.token.email == email;
-    }
-
-    // --- Validation Helpers ---
-    function isValidGig(data) {
-      return data.title is string && data.title.size() >= 3 && data.title.size() <= 100 &&
-             data.authorId is string && data.authorId == request.auth.uid;
-    }
-
-    function isValidNotification(data) {
-      return data.userId is string && (isAdmin() || data.userId == request.auth.uid) &&
-             data.title is string && data.message is string;
-    }
-
-    // --- Default Deny ---
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // --- Collections ---
-
-    // User profiles
     match /users/{userId} {
-      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      // Users can manage their own non-admin profile data
-      allow create, update: if isOwner(userId) && (!incoming().hasAny(['isAdmin']) || existing().isAdmin == incoming().isAdmin);
-      allow write: if isAdmin();
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+      
+      allow create: if isSignedIn() && request.auth.uid == userId &&
+                       (request.resource.data.get('isAdmin', false) == false || request.auth.token.get('email', '').lower() == 'timegig2026@gmail.com'.lower());
+                       
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && (request.resource.data.get('isAdmin', false) == resource.data.get('isAdmin', false))) || 
+        isAdmin()
+      );
     }
 
-    // Gigs
     match /gigs/{gigId} {
       allow read: if true;
-      allow create: if isSignedIn() && isValidGig(incoming());
-      allow update: if isAdmin() || (isOwner(existing().authorId) && isValidGig(incoming()));
-      allow delete: if isAdmin() || isOwner(existing().authorId) || isEmailOwner(existing().authorEmail);
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.get('authorId', '') == request.auth.uid || isAdmin());
     }
-
-    // Feedbacks
-    match /feedbacks/{feedbackId} {
+    
+    match /feedbacks/{id} {
+      allow create: if isSignedIn();
       allow read: if isAdmin();
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
     }
-
-    // Notifications
-    match /notifications/{notificationId} {
-      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && isValidNotification(incoming());
-      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid;
-      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    
+    match /notifications/{id} {
+      allow get: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
     }
-
-    // Topups
-    match /topups/{topupId} {
-      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    
+    match /topups/{id} {
+      allow get: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.get('userId', '') == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+    
+    match /agent_cashouts/{id} {
+      allow get: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.get('userId', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.get('userId', '') == request.auth.uid;
       allow update, delete: if isAdmin();
     }
 
-    // Agent Cashouts
-    match /agent_cashouts/{cashoutId} {
-      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    match /referrals/{id} {
+      allow get: if isSignedIn() && (resource.data.get('referrerId', '') == request.auth.uid || resource.data.get('refereeId', '') == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.get('referrerId', '') == request.auth.uid || resource.data.get('refereeId', '') == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.get('refereeId', '') == request.auth.uid;
       allow update, delete: if isAdmin();
     }
   }

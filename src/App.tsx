@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook } from 'lucide-react';
+import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -78,7 +78,7 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   throw new Error(JSON.stringify(errInfo));
 }
 
-type Screen = 'signup' | 'home' | 'wallet' | 'referral' | 'admin' | 'chat';
+type Screen = 'signup' | 'home' | 'wallet' | 'referral' | 'admin' | 'chat' | 'profile';
 type WalletStep = 'overview' | 'topup_options' | 'bank_transfer' | 'success';
 
 interface CoinOption {
@@ -108,6 +108,22 @@ interface NotificationItem {
 }
 
 const BLURRY_COINS_BG = 'https://images.unsplash.com/photo-1621416894569-0f39ed31d247?w=1200&auto=format&fit=crop&q=80';
+
+const CoinWallpaper = ({ opacity = 0.05 }: { opacity?: number }) => (
+  <div className="absolute inset-0 pointer-events-none overflow-hidden flex items-center justify-around px-4 select-none" style={{ opacity }}>
+    <Coins className="w-4 h-4 -rotate-12" />
+    <Coins className="w-3 h-3 rotate-12" />
+    <Coins className="w-5 h-5 -rotate-45" />
+    <Coins className="w-4 h-4 rotate-45" />
+    <Coins className="w-3 h-3 -rotate-12" />
+    <Coins className="w-6 h-6 rotate-12 sm:block hidden" />
+    <Coins className="w-4 h-4 -rotate-90 sm:block hidden" />
+  </div>
+);
+
+const AppNameWithCoins = ({ className = "" }: { className?: string; iconSize?: string }) => (
+  <span className={className}>TimeGiG</span>
+);
 
 const BlurryCoinsBg = ({ opacity = 0.25, overlay = 'bg-black/60' }: { opacity?: number; overlay?: string }) => (
   <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
@@ -207,80 +223,22 @@ interface Gig {
 
 const INITIAL_GIGS: Gig[] = [];
 
-const REWARD_BOXES: RewardBox[] = [
-  { 
-    id: 'r1', 
-    reward: 'R200,00', 
-    targetCoins: '2000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-2000c',
-    color: 'text-emerald-700',
-    bgColor: 'bg-emerald-50/80',
-    borderColor: 'border-emerald-200 hover:border-emerald-300',
-    badgeBg: 'bg-emerald-100 text-emerald-800',
-    progress: 8
-  },
-  { 
-    id: 'r2', 
-    reward: 'R600,00', 
-    targetCoins: '6000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-6000c',
-    color: 'text-blue-700',
-    bgColor: 'bg-blue-50/80',
-    borderColor: 'border-blue-200 hover:border-blue-300',
-    badgeBg: 'bg-blue-100 text-blue-800',
-    progress: 12
-  },
-  { 
-    id: 'r3', 
-    reward: 'R800,00', 
-    targetCoins: '8000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-8000c',
-    color: 'text-purple-700',
-    bgColor: 'bg-purple-50/80',
-    borderColor: 'border-purple-200 hover:border-purple-300',
-    badgeBg: 'bg-purple-100 text-purple-800',
-    progress: 5
-  },
-  { 
-    id: 'r4', 
-    reward: 'R1.000,00', 
-    targetCoins: '10000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-10000c',
-    color: 'text-amber-700',
-    bgColor: 'bg-amber-50/80',
-    borderColor: 'border-amber-200 hover:border-amber-300',
-    badgeBg: 'bg-amber-100 text-amber-800',
-    progress: 15
-  },
-  { 
-    id: 'r5', 
-    reward: 'R2.000,00', 
-    targetCoins: '20000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-20000c',
-    color: 'text-rose-700',
-    bgColor: 'bg-rose-50/80',
-    borderColor: 'border-rose-200 hover:border-rose-300',
-    badgeBg: 'bg-rose-100 text-rose-800',
-    progress: 3
-  },
-  { 
-    id: 'r6', 
-    reward: 'R2.000,00', 
-    targetCoins: '20000c', 
-    referralsRequired: 20, 
-    link: 'https://portal.app/agent/ref-20000c-max',
-    color: 'text-indigo-700',
-    bgColor: 'bg-indigo-50/80',
-    borderColor: 'border-indigo-200 hover:border-indigo-300',
-    badgeBg: 'bg-indigo-100 text-indigo-800',
-    progress: 18
-  },
+const PROVINCES = [
+  'Eastern Cape', 'Free State', 'Gauteng', 'KwaZulu-Natal', 
+  'Limpopo', 'Mpumalanga', 'Northern Cape', 'North West', 'Western Cape'
 ];
+
+const PROVINCE_LOCATIONS: Record<string, string[]> = {
+  'Gauteng': ['Johannesburg', 'Pretoria', 'Soweto', 'Sandton', 'Randburg'],
+  'Western Cape': ['Cape Town', 'Stellenbosch', 'Paarl', 'George', 'Knysna'],
+  'KwaZulu-Natal': ['Durban', 'Pietermaritzburg', 'Umhlanga', 'Ballito'],
+  'Free State': ['Bloemfontein', 'Welkom', 'Bethlehem'],
+  'Eastern Cape': ['Port Elizabeth', 'East London', 'Grahamstown'],
+  'Limpopo': ['Polokwane', 'Thohoyandou', 'Tzaneen'],
+  'Mpumalanga': ['Nelspruit', 'Witbank', 'Secunda'],
+  'Northern Cape': ['Kimberley', 'Upington'],
+  'North West': ['Rustenburg', 'Potchefstroom']
+};
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -292,10 +250,119 @@ export default function App() {
   const [selectedOption, setSelectedOption] = useState<CoinOption | null>(null);
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [showReviewPopup, setShowReviewPopup] = useState<boolean>(false);
-  
   const [showSplash, setShowSplash] = useState(true);
+
+  // Referral states declared early for rewardBoxes
+  const [referralCode, setReferralCode] = useState<string>('');
+  const [referralCount, setReferralCount] = useState<number>(0);
+  const [activeReferralCode, setActiveReferralCode] = useState<string | null>(localStorage.getItem('referralCode'));
+  const [isAgent, setIsAgent] = useState<boolean>(false);
+
+  // Profile states
+  const [profileFirstName, setProfileFirstName] = useState('');
+  const [profileMiddleName, setProfileMiddleName] = useState('');
+  const [profileSurname, setProfileSurname] = useState('');
+  const [profilePhone, setProfilePhone] = useState('');
+  const [profileSocialLinks, setProfileSocialLinks] = useState<string[]>(['']);
+  const [profileSkills, setProfileSkills] = useState<string[]>(['']);
+  const [profileProvince, setProfileProvince] = useState('');
+  const [profileLocation, setProfileLocation] = useState('');
+  const [profilePhotoURL, setProfilePhotoURL] = useState('');
+  const [isProfileLocked, setIsProfileLocked] = useState(false);
+  const [profilePin, setProfilePin] = useState('');
+  const [pinInput, setPinInput] = useState('');
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [showProfileCongrats, setShowProfileCongrats] = useState(false);
+
+  const appUrl = window.location.origin;
+  const userReferralLink = `${appUrl}/?ref=${referralCode}`;
+
+  const rewardBoxes: RewardBox[] = [
+    { 
+      id: 'r1', 
+      reward: 'R200,00', 
+      targetCoins: '2000c', 
+      referralsRequired: 20, 
+      link: userReferralLink,
+      color: 'text-emerald-700',
+      bgColor: 'bg-emerald-50/80',
+      borderColor: 'border-emerald-200 hover:border-emerald-300',
+      badgeBg: 'bg-emerald-100 text-emerald-800',
+      progress: Math.min(20, referralCount)
+    },
+    { 
+      id: 'r2', 
+      reward: 'R600,00', 
+      targetCoins: '6000c', 
+      referralsRequired: 60, 
+      link: userReferralLink,
+      color: 'text-blue-700',
+      bgColor: 'bg-blue-50/80',
+      borderColor: 'border-blue-200 hover:border-blue-300',
+      badgeBg: 'bg-blue-100 text-blue-800',
+      progress: Math.min(60, referralCount)
+    },
+    { 
+      id: 'r3', 
+      reward: 'R800,00', 
+      targetCoins: '8000c', 
+      referralsRequired: 80, 
+      link: userReferralLink,
+      color: 'text-purple-700',
+      bgColor: 'bg-purple-50/80',
+      borderColor: 'border-purple-200 hover:border-purple-300',
+      badgeBg: 'bg-purple-100 text-purple-800',
+      progress: Math.min(80, referralCount)
+    },
+    { 
+      id: 'r4', 
+      reward: 'R1.000,00', 
+      targetCoins: '10000c', 
+      referralsRequired: 100, 
+      link: userReferralLink,
+      color: 'text-amber-700',
+      bgColor: 'bg-amber-50/80',
+      borderColor: 'border-amber-200 hover:border-amber-300',
+      badgeBg: 'bg-amber-100 text-amber-800',
+      progress: Math.min(100, referralCount)
+    },
+    { 
+      id: 'r5', 
+      reward: 'R2.000,00', 
+      targetCoins: '20000c', 
+      referralsRequired: 200, 
+      link: userReferralLink,
+      color: 'text-rose-700',
+      bgColor: 'bg-rose-50/80',
+      borderColor: 'border-rose-200 hover:border-rose-300',
+      badgeBg: 'bg-rose-100 text-rose-800',
+      progress: Math.min(200, referralCount)
+    },
+  ];
+
+  const handleBecomeAgent = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        isAgent: true
+      });
+      setIsAgent(true);
+      setToastMessage('🚀 You are now an Agent Partner!');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error("Error becoming agent:", err);
+    }
+  };
   
   useEffect(() => {
+    // Capture referral code from URL
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get('ref');
+    if (ref) {
+      localStorage.setItem('referralCode', ref);
+      setActiveReferralCode(ref);
+    }
+    
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 5000);
@@ -306,26 +373,98 @@ export default function App() {
         setIsLoggedIn(true);
         try {
           // Check if admin
-          const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-          if (userDoc.exists()) {
-            setIsAdminUser(userDoc.data().isAdmin || currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase());
-            setBalance(userDoc.data().balance || 0);
-            setBankName(userDoc.data().bankName || '');
-            setAccountNumber(userDoc.data().accountNumber || '');
-            setBranchCode(userDoc.data().branchCode || '');
-            setAccountHolder(userDoc.data().accountHolder || '');
-            setIsBankingSaved(!!userDoc.data().accountNumber);
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          let userDoc;
+          try {
+            userDoc = await getDoc(userDocRef);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+          }
+
+          if (userDoc?.exists()) {
+            const data = userDoc.data();
+            setIsAdminUser(data.isAdmin || currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase());
+            setBalance(data.balance || 0);
+            setBankName(data.bankName || '');
+            setAccountNumber(data.accountNumber || '');
+            setBranchCode(data.branchCode || '');
+            setAccountHolder(data.accountHolder || '');
+            setIsBankingSaved(!!data.accountNumber);
+            setIsAgent(data.isAgent || false);
+            setProfileFirstName(data.firstName || '');
+            setProfileMiddleName(data.middleName || '');
+            setProfileSurname(data.surname || '');
+            setProfilePhone(data.phone || '');
+            setProfileSocialLinks(data.socialLinks || ['']);
+            setProfileSkills(data.skills || ['']);
+            setProfileProvince(data.province || '');
+            setProfileLocation(data.location || '');
+            setProfilePhotoURL(data.photoURL || '');
+            setIsProfileLocked(data.isLocked || false);
+            setProfilePin(data.pin || '');
+            
+            if (data.referralCode) {
+              setReferralCode(data.referralCode);
+            } else {
+              // Generate referral code for legacy user
+              const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+              await updateDoc(userDocRef, { referralCode: newReferralCode });
+              setReferralCode(newReferralCode);
+            }
           } else {
             // Initialize user doc if it doesn't exist
             const isAdmin = currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase();
-            await setDoc(doc(db, 'users', currentUser.uid), {
+            const newReferralCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+            const userData = {
               email: currentUser.email,
               isAdmin: isAdmin,
               balance: 0,
+              referralCode: newReferralCode,
+              isAgent: false,
               createdAt: serverTimestamp()
-            });
+            };
+            try {
+              await setDoc(userDocRef, userData);
+              
+              // If there was an active referral code, record the referral
+              const storedRefCode = localStorage.getItem('referralCode');
+              if (storedRefCode) {
+                try {
+                  // Find the referrer
+                  const usersRef = collection(db, 'users');
+                  const q = query(usersRef, where('referralCode', '==', storedRefCode));
+                  const querySnapshot = await getDocs(q);
+                  if (!querySnapshot.empty) {
+                    const referrerId = querySnapshot.docs[0].id;
+                    await addDoc(collection(db, 'referrals'), {
+                      referrerId: referrerId,
+                      refereeId: currentUser.uid,
+                      refereeEmail: currentUser.email,
+                      createdAt: serverTimestamp()
+                    });
+                    
+                    // Notify referrer
+                    await addDoc(collection(db, 'notifications'), {
+                      userId: referrerId,
+                      title: 'New Referral! 🤝',
+                      message: `A new user joined using your referral link! Your progress toward reward boxes has increased.`,
+                      time: 'Just now',
+                      read: false,
+                      createdAt: serverTimestamp()
+                    });
+                    
+                    localStorage.removeItem('referralCode');
+                  }
+                } catch (err) {
+                  console.error("Error processing referral:", err);
+                }
+              }
+            } catch (error) {
+              handleFirestoreError(error, OperationType.WRITE, `users/${currentUser.uid}`);
+            }
             setIsAdminUser(isAdmin);
             setBalance(0);
+            setReferralCode(newReferralCode);
           }
         } catch (error) {
           console.error("Firestore initialization error:", error);
@@ -356,6 +495,8 @@ export default function App() {
         ...doc.data()
       })) as Gig[];
       setGigs(gigsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'gigs');
     });
     return () => unsubscribe();
   }, []);
@@ -418,7 +559,17 @@ export default function App() {
     return () => unsubscribe();
   }, [user, isAdminUser]);
 
-  // Sync Agent Cashouts from Firestore
+  // Sync Referral Count from Firestore
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'referrals'), where('referrerId', '==', user.uid));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      setReferralCount(snapshot.size);
+    }, (error) => {
+      console.error("Referral count sync error:", error);
+    });
+    return () => unsubscribe();
+  }, [user]);
   useEffect(() => {
     if (!isAdminUser) {
       setAgentCashouts([]);
@@ -459,7 +610,6 @@ export default function App() {
   const [viewingAgentCashout, setViewingAgentCashout] = useState<AgentCashoutRecord | null>(null);
 
   // Agent mode state
-  const [isAgent, setIsAgent] = useState<boolean>(false);
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [expandedBoxId, setExpandedBoxId] = useState<string | null>(null);
 
@@ -559,6 +709,74 @@ export default function App() {
     setNewGigUploadedImages((prev) => prev.filter((_, i) => i !== indexToRemove));
   };
 
+  const handleProfileImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const maxDimension = 300;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDimension) {
+              height *= maxDimension / width;
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width *= maxDimension / height;
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            setProfilePhotoURL(compressedDataUrl);
+          }
+        };
+        img.src = event.target.result as string;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        firstName: profileFirstName,
+        middleName: profileMiddleName,
+        surname: profileSurname,
+        phone: profilePhone,
+        socialLinks: profileSocialLinks.filter(l => l.trim() !== ''),
+        skills: profileSkills.filter(s => s.trim() !== ''),
+        province: profileProvince,
+        location: profileLocation,
+        photoURL: profilePhotoURL,
+        isLocked: isProfileLocked,
+        pin: profilePin
+      });
+      setShowProfileCongrats(true);
+      setTimeout(() => setShowProfileCongrats(false), 3000);
+      setToastMessage('✅ Profile updated successfully!');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      setToastMessage('❌ Error saving profile.');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
+
   const handleFeedbackSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!feedbackText.trim()) return;
@@ -577,9 +795,7 @@ export default function App() {
       setToastMessage('Thank you for your feedback!');
       setTimeout(() => setToastMessage(null), 3000);
     } catch (error) {
-      console.error("Error adding feedback: ", error);
-      setToastMessage('Error submitting feedback. Please try again.');
-      setTimeout(() => setToastMessage(null), 3000);
+      handleFirestoreError(error, OperationType.CREATE, 'feedbacks');
     }
   };
 
@@ -1255,7 +1471,7 @@ export default function App() {
   if (showSplash || isAuthLoading) {
     return (
       <div className="fixed inset-0 bg-white flex flex-col items-center justify-center z-[100] animate-fadeIn">
-        <h1 className="text-5xl font-black text-black tracking-widest uppercase mb-4">TimeGiG</h1>
+        <AppNameWithCoins className="text-5xl font-black text-black tracking-widest uppercase mb-4" iconSize="w-8 h-8" />
         {isAuthLoading && (
            <div className="flex flex-col items-center space-y-2">
              <div className="w-6 h-6 border-2 border-neutral-200 border-t-black rounded-full animate-spin" />
@@ -1274,7 +1490,7 @@ export default function App() {
             <h3 className="text-lg font-bold text-neutral-900 flex items-center space-x-2">
               <Zap className="w-5 h-5 text-amber-500" />
               <span>
-                {tourStep === 1 && "Welcome to TimeGiG!"}
+                {tourStep === 1 && <div className="flex items-center space-x-2">Welcome to <AppNameWithCoins className="font-bold" />!</div>}
                 {tourStep === 2 && "Stay Updated"}
                 {tourStep === 3 && "Earn with Referrals"}
                 {tourStep === 4 && "Manage Your Wallet"}
@@ -1329,8 +1545,9 @@ export default function App() {
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && (
-        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-100/50 sticky top-0 z-40 bg-white/50 backdrop-blur-md">
-          <div className="flex items-center space-x-1 sm:space-x-2">
+        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-100/50 sticky top-0 z-40 bg-white/70 backdrop-blur-md overflow-hidden relative">
+          <CoinWallpaper opacity={0.06} />
+          <div className="flex items-center space-x-1 sm:space-x-2 relative z-10">
             {/* Feedback small icon */}
             <button
               onClick={() => setShowFeedbackModal(true)}
@@ -1512,7 +1729,7 @@ export default function App() {
               ) : (
                 <>
                   <div className="text-center space-y-2">
-                    <h2 className="text-sm font-black text-black tracking-[0.3em] uppercase mb-6">TimeGiG</h2>
+                    <AppNameWithCoins className="text-sm font-black text-black tracking-[0.3em] uppercase mb-6" />
                     <h1 className="text-2xl font-bold text-neutral-900 tracking-tight">
                       {authMode === 'signup' ? 'Create your account' : 'Welcome back'}
                     </h1>
@@ -1607,7 +1824,7 @@ export default function App() {
             <div className="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded-xl flex items-start space-x-3 mb-2 shadow-sm">
               <Zap className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
               <div className="text-sm">
-                <span className="font-bold block mb-1">Welcome to TimeGiG!</span>
+                <span className="font-bold block mb-1">Welcome to <AppNameWithCoins className="font-bold" />!</span>
                 Please note that this application is currently new and under active development. Some features may be limited or subject to change. Thank you for your support!
               </div>
             </div>
@@ -1966,7 +2183,7 @@ export default function App() {
               </div>
               {isBankingSaved && !isAgent && (
                 <button
-                  onClick={() => setIsAgent(true)}
+                  onClick={handleBecomeAgent}
                   className="px-4 py-2 bg-black text-white rounded-xl text-xs font-medium hover:bg-neutral-800 transition-colors shadow-xs"
                 >
                   Become an Agent
@@ -2116,12 +2333,12 @@ export default function App() {
 
                 <div className="w-full space-y-3">
                   <div className="flex items-center justify-between">
-                    <h2 className="text-sm font-medium text-neutral-800">Agent Reward Boxes ({REWARD_BOXES.length})</h2>
-                    <span className="text-xs text-neutral-400">Earn cash per 20 valid referrals</span>
+                    <h2 className="text-sm font-medium text-neutral-800">Agent Reward Boxes ({rewardBoxes.length})</h2>
+                    <span className="text-xs text-neutral-400">Earn cash rewards as you refer users</span>
                   </div>
 
                   <div className="grid grid-cols-1 gap-4 w-full">
-                    {REWARD_BOXES.map((box) => {
+                    {rewardBoxes.map((box) => {
                       const isExpanded = expandedBoxId === box.id;
                       const percentage = Math.min(100, Math.round((box.progress / box.referralsRequired) * 100));
 
@@ -2258,6 +2475,330 @@ export default function App() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+        )}
+
+        {activeScreen === 'profile' && (
+          <div className="w-full flex-1 flex flex-col h-full animate-fadeIn overflow-hidden">
+            {isProfileLocked && pinInput !== profilePin ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6 bg-white">
+                <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
+                  <Lock className="w-8 h-8 text-neutral-400" />
+                </div>
+                <div className="text-center space-y-2">
+                  <h2 className="text-xl font-bold text-neutral-900">Profile Locked</h2>
+                  <p className="text-sm text-neutral-500">Enter your 4-digit PIN to access your profile.</p>
+                </div>
+                <div className="flex gap-2">
+                  {[0, 1, 2, 3].map((i) => (
+                    <div 
+                      key={i}
+                      className={`w-12 h-14 border-2 rounded-xl flex items-center justify-center text-xl font-bold transition-all ${
+                        pinInput.length > i ? 'border-black bg-black text-white' : 'border-neutral-200 bg-neutral-50'
+                      }`}
+                    >
+                      {pinInput.length > i ? '•' : ''}
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-3 gap-3 w-full max-w-[280px]">
+                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '✓'].map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => {
+                        if (num === 'C') setPinInput('');
+                        else if (num === '✓') {
+                          if (pinInput === profilePin) {
+                            // PIN correct
+                          } else {
+                            setToastMessage('❌ Incorrect PIN');
+                            setTimeout(() => setToastMessage(null), 3000);
+                            setPinInput('');
+                          }
+                        }
+                        else if (typeof num === 'number' && pinInput.length < 4) setPinInput(prev => prev + num);
+                      }}
+                      className={`h-14 rounded-xl text-lg font-semibold transition-colors flex items-center justify-center ${
+                        num === '✓' ? 'bg-emerald-600 text-white' : 'bg-neutral-100 hover:bg-neutral-200 text-neutral-800'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-8 bg-white pb-24">
+                <div className="flex items-center justify-between border-b border-neutral-100 pb-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-neutral-900">User Profile</h2>
+                    <p className="text-xs text-neutral-400">Manage your personal information and presence</p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {isProfileLocked && (
+                      <button 
+                        onClick={() => setPinInput('')}
+                        className="p-2 bg-neutral-100 text-neutral-500 rounded-full hover:bg-neutral-200 transition-colors"
+                        title="Lock Profile"
+                      >
+                        <Lock className="w-4 h-4" />
+                      </button>
+                    )}
+                    <button className="p-2 bg-neutral-900 text-white rounded-full hover:bg-neutral-800 transition-colors">
+                      <Settings className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Profile Header */}
+                <div className="flex flex-col items-center space-y-4">
+                  <div className="relative">
+                    <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-xl bg-neutral-100 flex items-center justify-center relative group">
+                      {profilePhotoURL ? (
+                        <img src={profilePhotoURL} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        <UserIcon className="w-12 h-12 text-neutral-300" />
+                      )}
+                      <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                        <Upload className="w-6 h-6 text-white" />
+                        <input type="file" className="hidden" accept="image/*" onChange={handleProfileImageUpload} />
+                      </label>
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-lg font-bold text-neutral-900">
+                      {profileFirstName || 'New'} {profileSurname || 'User'}
+                    </h3>
+                    <p className="text-xs text-neutral-400">{user?.email}</p>
+                    {isAgent && (
+                      <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                        Agent Partner
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Profile Security / PIN */}
+                <div className="bg-neutral-50 rounded-2xl p-5 border border-neutral-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-white rounded-lg shadow-xs">
+                        <Shield className="w-4 h-4 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-neutral-800">Security PIN</p>
+                        <p className="text-[10px] text-neutral-500">Lock your profile with a 4-digit code</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        if (!profilePin || profilePin.length !== 4) {
+                          setToastMessage('⚠️ Please enter a 4-digit PIN first');
+                          setTimeout(() => setToastMessage(null), 3000);
+                          return;
+                        }
+                        setIsProfileLocked(!isProfileLocked);
+                        if (!isProfileLocked) {
+                          setToastMessage('🔒 Profile lock enabled');
+                        } else {
+                          setToastMessage('🔓 Profile lock disabled');
+                        }
+                        setTimeout(() => setToastMessage(null), 3000);
+                      }}
+                      className={`w-12 h-6 rounded-full transition-all duration-300 relative ${isProfileLocked ? 'bg-emerald-500' : 'bg-neutral-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm transition-all duration-300 ${isProfileLocked ? 'left-7' : 'left-1'}`} />
+                    </button>
+                  </div>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex-1 space-y-1">
+                      <label className="text-[10px] font-bold text-neutral-400 uppercase">Set PIN (4 digits)</label>
+                      <input 
+                        type="password"
+                        maxLength={4}
+                        placeholder="••••"
+                        value={profilePin}
+                        onChange={(e) => {
+                          const val = e.target.value.replace(/[^0-9]/g, '');
+                          if (val.length <= 4) setProfilePin(val);
+                        }}
+                        className="w-full p-3 bg-white border border-neutral-200 rounded-xl text-lg font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-black/5"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Basic Details */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-l-2 border-black pl-2">Basic Details</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase">First Name</label>
+                      <input 
+                        value={profileFirstName}
+                        onChange={(e) => setProfileFirstName(e.target.value)}
+                        placeholder="First Name"
+                        className="w-full p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase">Surname</label>
+                      <input 
+                        value={profileSurname}
+                        onChange={(e) => setProfileSurname(e.target.value)}
+                        placeholder="Surname"
+                        className="w-full p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase">Middle Name</label>
+                    <input 
+                      value={profileMiddleName}
+                      onChange={(e) => setProfileMiddleName(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold text-neutral-500 uppercase">Phone Number</label>
+                    <div className="relative">
+                      <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                      <input 
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value)}
+                        placeholder="+27 00 000 0000"
+                        className="w-full pl-10 p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Location */}
+                <div className="space-y-4">
+                  <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-l-2 border-black pl-2">Province & Location</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase">Province</label>
+                      <select 
+                        value={profileProvince}
+                        onChange={(e) => {
+                          setProfileProvince(e.target.value);
+                          setProfileLocation('');
+                        }}
+                        className="w-full p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all appearance-none"
+                      >
+                        <option value="">Select</option>
+                        {PROVINCES.map(p => <option key={p} value={p}>{p}</option>)}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold text-neutral-500 uppercase">Location</label>
+                      <select 
+                        value={profileLocation}
+                        onChange={(e) => setProfileLocation(e.target.value)}
+                        disabled={!profileProvince}
+                        className="w-full p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all appearance-none disabled:opacity-50"
+                      >
+                        <option value="">Select</option>
+                        {profileProvince && PROVINCE_LOCATIONS[profileProvince]?.map(l => (
+                          <option key={l} value={l}>{l}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Social Links */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-l-2 border-black pl-2">Social Media</h3>
+                    <button 
+                      onClick={() => setProfileSocialLinks([...profileSocialLinks, ''])}
+                      className="flex items-center space-x-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>ADD LINK</span>
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {profileSocialLinks.map((link, idx) => (
+                      <div key={idx} className="flex items-center space-x-2 animate-fadeIn">
+                        <div className="flex-1 relative">
+                          <ExternalLink className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-400" />
+                          <input 
+                            value={link}
+                            onChange={(e) => {
+                              const newLinks = [...profileSocialLinks];
+                              newLinks[idx] = e.target.value;
+                              setProfileSocialLinks(newLinks);
+                            }}
+                            placeholder="https://social.com/user"
+                            className="w-full pl-10 p-3 bg-neutral-50 border border-neutral-100 rounded-xl text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all"
+                          />
+                        </div>
+                        {profileSocialLinks.length > 1 && (
+                          <button 
+                            onClick={() => setProfileSocialLinks(profileSocialLinks.filter((_, i) => i !== idx))}
+                            className="p-3 text-rose-500 hover:bg-rose-50 rounded-xl transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Skills */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-neutral-400 uppercase tracking-widest border-l-2 border-black pl-2">Skills & Expertise</h3>
+                    <button 
+                      onClick={() => setProfileSkills([...profileSkills, ''])}
+                      className="flex items-center space-x-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-100"
+                    >
+                      <Plus className="w-3 h-3" />
+                      <span>ADD SKILL</span>
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    {profileSkills.map((skill, idx) => (
+                      <div key={idx} className="relative group animate-fadeIn">
+                        <input 
+                          value={skill}
+                          onChange={(e) => {
+                            const newSkills = [...profileSkills];
+                            newSkills[idx] = e.target.value;
+                            setProfileSkills(newSkills);
+                          }}
+                          placeholder="Skill name"
+                          className="px-4 py-2 bg-neutral-100 border border-neutral-200 rounded-full text-xs font-medium focus:outline-none focus:bg-white focus:ring-2 focus:ring-black/5 transition-all w-32"
+                        />
+                        {profileSkills.length > 1 && (
+                          <button 
+                            onClick={() => setProfileSkills(profileSkills.filter((_, i) => i !== idx))}
+                            className="absolute -top-1.5 -right-1.5 p-1 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity shadow-sm"
+                          >
+                            <X className="w-2.5 h-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="pt-4 pb-8">
+                  <button
+                    onClick={handleSaveProfile}
+                    className="w-full py-4 bg-neutral-900 text-white rounded-2xl font-bold shadow-xl hover:bg-black transition-all active:scale-95 flex items-center justify-center space-x-2"
+                  >
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span>SAVE PROFILE DATA</span>
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         )}
@@ -3464,6 +4005,30 @@ export default function App() {
         </div>
       )}
 
+      {/* Profile Congrats Modal */}
+      {showProfileCongrats && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
+          <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl animate-scaleIn">
+            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 animate-bounce">
+              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
+            </div>
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold text-neutral-900">Congratulations! 🎉</h2>
+              <p className="text-neutral-500">Your profile has been successfully updated and secured.</p>
+            </div>
+            <div className="pt-4">
+              <button 
+                onClick={() => setShowProfileCongrats(false)}
+                className="w-full py-4 bg-black text-white rounded-2xl font-bold shadow-lg hover:bg-neutral-800 transition-all"
+              >
+                Great, thanks!
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Feedback Modal */}
       {showFeedbackModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fadeIn">
@@ -3510,8 +4075,8 @@ export default function App() {
 
       {/* Bottom Menu Bar with GIGs, Wallet, Chat, and Referral (Hidden on Chat Screen and Signup) */}
       {activeScreen !== 'chat' && activeScreen !== 'signup' && (
-        <nav className="w-full border-t border-neutral-200/80 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative">
-          <BlurryCoinsBg opacity={0.3} overlay="bg-white/80 backdrop-blur-md" />
+        <nav className="w-full border-t border-neutral-200/80 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/80 backdrop-blur-md overflow-hidden">
+          <CoinWallpaper opacity={0.08} />
           <div className="relative z-10 flex items-center justify-around w-full">
           <button
             onClick={() => {
@@ -3557,12 +4122,31 @@ export default function App() {
               setActiveScreen('referral');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors ${
-              activeScreen === 'referral' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+            className={`flex flex-col items-center space-y-1 transition-all duration-300 ${
+              activeScreen === 'referral' ? 'text-emerald-600 font-bold' : 'text-neutral-400 hover:text-emerald-500'
             }`}
           >
-            <Share2 className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[11px] sm:text-xs">Referral</span>
+            <div className={`p-1.5 rounded-full transition-all duration-500 ${
+              activeScreen === 'referral' 
+                ? 'bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-100/50' 
+                : 'hover:bg-neutral-50'
+            }`}>
+              <Share2 className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
+            </div>
+            <span className="text-[10px] sm:text-[11px] uppercase tracking-tight font-bold">Referral</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveScreen('profile');
+              setWalletStep('overview');
+            }}
+            className={`flex flex-col items-center space-y-1 transition-colors ${
+              activeScreen === 'profile' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+            }`}
+          >
+            <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-[11px] sm:text-xs">Profile</span>
           </button>
           </div>
         </nav>

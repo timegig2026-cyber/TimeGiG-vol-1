@@ -9,6 +9,18 @@
         "isAdmin": { "type": "boolean" },
         "referralCode": { "type": "string" },
         "balance": { "type": "number" },
+        "firstName": { "type": "string" },
+        "middleName": { "type": "string" },
+        "surname": { "type": "string" },
+        "phone": { "type": "string" },
+        "socialLinks": { "type": "array" },
+        "skills": { "type": "array" },
+        "province": { "type": "string" },
+        "location": { "type": "string" },
+        "isLocked": { "type": "boolean" },
+        "pin": { "type": "string", "pattern": "^[0-9]{4}$" },
+        "photoURL": { "type": "string" },
+        "isAgent": { "type": "boolean" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "isAdmin", "createdAt"]
