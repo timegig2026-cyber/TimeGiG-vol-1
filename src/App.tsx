@@ -25,6 +25,7 @@ import {
   deleteDoc, 
   setDoc,
   getDoc,
+  getDocs,
   serverTimestamp,
   Timestamp,
   where
@@ -120,32 +121,7 @@ const BlurryCoinsBg = ({ opacity = 0.25, overlay = 'bg-black/60' }: { opacity?: 
   </div>
 );
 
-const INITIAL_NOTIFICATIONS: NotificationItem[] = [
-  {
-    id: 'n_gig_1',
-    title: '📢 New Gig Alert',
-    message: 'New local gig posted: "Emergency Plumbing Services" in Sandton (R450).',
-    time: '5m ago',
-    read: false,
-    gigId: 'g1'
-  },
-  {
-    id: 'n_gig_2',
-    title: '📢 New Gig Alert',
-    message: 'New local gig posted: "High School Math & Physics Tutor" in Rosebank (R200/hr).',
-    time: '20m ago',
-    read: false,
-    gigId: 'g2'
-  },
-  {
-    id: 'n_gig_3',
-    title: '📢 New Gig Alert',
-    message: 'New local gig posted: "Custom Web Development & Design" in Cape Town (R1,200).',
-    time: '1h ago',
-    read: true,
-    gigId: 'g3'
-  }
-];
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [];
 
 interface AgentCashoutRecord {
   id: string;
@@ -332,7 +308,7 @@ export default function App() {
           // Check if admin
           const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
           if (userDoc.exists()) {
-            setIsAdminUser(userDoc.data().isAdmin || currentUser.email === 'timegig2026@gmail.com');
+            setIsAdminUser(userDoc.data().isAdmin || currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase());
             setBalance(userDoc.data().balance || 0);
             setBankName(userDoc.data().bankName || '');
             setAccountNumber(userDoc.data().accountNumber || '');
@@ -341,7 +317,7 @@ export default function App() {
             setIsBankingSaved(!!userDoc.data().accountNumber);
           } else {
             // Initialize user doc if it doesn't exist
-            const isAdmin = currentUser.email === 'timegig2026@gmail.com';
+            const isAdmin = currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase();
             await setDoc(doc(db, 'users', currentUser.uid), {
               email: currentUser.email,
               isAdmin: isAdmin,
@@ -815,31 +791,6 @@ export default function App() {
     setContacts((prev) =>
       prev.map((c) => (c.id === activeChatContactId ? { ...c, lastMessage: text } : c))
     );
-
-    // Auto-reply simulation from contact
-    const currentContact = contacts.find((c) => c.id === activeChatContactId);
-    if (currentContact) {
-      setTimeout(() => {
-        const autoReplies = [
-          `Thanks for reaching out! I've received your message: "${text}". I will reply with details shortly.`,
-          `Hi! Thanks for your message. Let's arrange a good time to discuss further!`,
-          `Received! Please let me know your availability for this gig.`,
-          `Thanks! I am reviewing your request and will get back to you soon.`
-        ];
-        const randomReply = autoReplies[Math.floor(Math.random() * autoReplies.length)];
-        const replyMsg: ChatMessage = {
-          id: 'm_reply_' + Math.random().toString(36).substring(2, 9),
-          contactId: activeChatContactId,
-          sender: 'contact',
-          text: randomReply,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-        };
-        setMessages((prev) => [...prev, replyMsg]);
-        setContacts((prev) =>
-          prev.map((c) => (c.id === activeChatContactId ? { ...c, lastMessage: randomReply } : c))
-        );
-      }, 1200);
-    }
   };
 
   // Gig image swiping handlers (swipe through one gig owner's images)
@@ -911,33 +862,48 @@ export default function App() {
     setMessages(prev => [...prev, initialMsg]);
     setActiveChatContactId(targetContactId);
     
-    // Simulated quick response from gig poster
-    setTimeout(() => {
-      const replyMsg: ChatMessage = {
-        id: 'm_reply_' + Math.random().toString(36).substring(2, 9),
-        contactId: targetContactId,
-        sender: 'contact',
-        text: `Hi there! Yes, "${gig.title}" is still available in ${gig.location}. What dates or times suit you best?`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      setMessages(prev => [...prev, replyMsg]);
-      setContacts(prev => prev.map(c => c.id === targetContactId ? { ...c, lastMessage: replyMsg.text } : c));
-    }, 1000);
-
     setActiveChatContactId(targetContactId);
     setActiveScreen('chat');
     setSelectedGig(null);
   };
 
   const handleDeleteGig = async (gigId: string) => {
-    if (confirm("Are you sure you want to delete this gig?")) {
+    if (!gigId) {
+      setToastMessage('❌ Error: Gig ID is missing.');
+      return;
+    }
+    if (window.confirm("Are you sure you want to delete this gig?")) {
       try {
         await deleteDoc(doc(db, 'gigs', gigId));
         setSelectedGig(null);
-        setToastMessage('Gig deleted successfully.');
+        setToastMessage('✅ Gig deleted successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (error: any) {
+        console.error("Delete error:", error);
+        setToastMessage(`❌ Delete failed: ${error.message || 'Permission denied'}`);
+        setTimeout(() => setToastMessage(null), 5000);
+        // Do not re-throw here to prevent crashing the UI, just handle it gracefully
+      }
+    }
+  };
+
+  const handleClearAllGigs = async () => {
+    if (window.confirm("⚠️ CRITICAL ACTION: Are you sure you want to delete ALL gig posts from the market? This action is permanent and cannot be undone.")) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'gigs'));
+        if (querySnapshot.empty) {
+          setToastMessage('ℹ️ The market is already empty.');
+          setTimeout(() => setToastMessage(null), 3000);
+          return;
+        }
+        
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        
+        setToastMessage('✅ All gigs have been removed from the market.');
         setTimeout(() => setToastMessage(null), 3000);
       } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `gigs/${gigId}`);
+        handleFirestoreError(error, OperationType.DELETE, 'gigs (ALL)');
       }
     }
   };
@@ -2623,6 +2589,31 @@ export default function App() {
               )}
             </div>
 
+            {/* Market Management */}
+            <div className="w-full space-y-3 pt-4 border-t border-neutral-200">
+              <h2 className="text-sm font-medium text-neutral-700 italic">Market Management</h2>
+              <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col space-y-3 shadow-xs">
+                <div className="flex items-start space-x-3">
+                  <div className="bg-red-100 p-2 rounded-lg">
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-red-900">Clear Market Gigs</div>
+                    <p className="text-[11px] text-red-700/80 mt-0.5 leading-relaxed">
+                      Delete every active gig post currently published on the market. This is an administrative cleanup tool and cannot be reversed.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleClearAllGigs}
+                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm active:scale-[0.98]"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Remove All Gigs from Market</span>
+                </button>
+              </div>
+            </div>
+
             {/* Agent Cashout & Referral Reward Payout Requests */}
             <div className="w-full space-y-3 pt-4 border-t border-neutral-200">
               <h2 className="text-sm font-medium text-neutral-700">Agent Cashout & Reward Payout Requests</h2>
@@ -3378,7 +3369,7 @@ export default function App() {
 
               {/* Action Buttons on Gig Post */}
               <div className="pt-2 flex flex-col sm:flex-row gap-3">
-                {selectedGig.authorId === user?.uid || selectedGig.authorEmail === (user?.email || authEmail) ? (
+                {isAdminUser || selectedGig.authorId === user?.uid || selectedGig.authorEmail === (user?.email || authEmail) ? (
                   <>
                     <button
                       onClick={() => handleShareGig(selectedGig)}
