@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle } from 'lucide-react';
+import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -1327,32 +1327,54 @@ export default function App() {
         </div>
       )}
 
-      {/* Top Bar with Admin and Notification Bell (Hidden on Chat Screen and Signup) */}
-      {activeScreen !== 'chat' && activeScreen !== 'signup' && (
-        <header className="w-full px-6 py-4 flex items-center justify-end border-b border-neutral-200/80 sticky top-0 z-40">
-          <BlurryCoinsBg opacity={0.3} overlay="bg-white/80 backdrop-blur-md" />
-          <div className="relative z-10 flex items-center justify-end w-full">
-          <div className="flex items-center space-x-2">
-            {/* Notification Bell */}
+      {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
+      {activeScreen !== 'chat' && (
+        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-100/50 sticky top-0 z-40 bg-white/50 backdrop-blur-md">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            {/* Feedback small icon */}
             <button
-              onClick={() => {
-                setShowNotifications(true);
-                markAllNotificationsRead();
-              }}
-              className="p-2 rounded-full transition-colors text-neutral-500 hover:bg-neutral-50 hover:text-black relative"
-              title="Notifications"
-              aria-label="Notifications"
+              onClick={() => setShowFeedbackModal(true)}
+              className="p-1.5 text-neutral-400 hover:text-black transition-colors"
+              title="Feedback"
             >
-              <Bell className="w-5 h-5" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1 right-1 w-4 h-4 bg-black text-white text-[10px] font-bold rounded-full flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
+              <MessageCircle className="w-4 h-4" />
             </button>
+            
+            {/* Facebook small icon */}
+            <a
+              href="https://www.facebook.com/profile.php?id=61592108856924"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 text-neutral-400 hover:text-[#1877F2] transition-colors"
+              title="Facebook"
+            >
+              <Facebook className="w-4 h-4" />
+            </a>
+
+            <div className="h-4 w-[1px] bg-neutral-200 mx-1"></div>
+
+            {/* Notification Bell */}
+            {isLoggedIn && (
+              <button
+                onClick={() => {
+                  setShowNotifications(true);
+                  markAllNotificationsRead();
+                }}
+                className="p-2 rounded-full transition-colors text-neutral-500 hover:bg-neutral-50 hover:text-black relative"
+                title="Notifications"
+                aria-label="Notifications"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-black text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Admin Icon */}
-            {isAdmin && (
+            {isLoggedIn && isAdmin && (
               <button
                 onClick={() => setActiveScreen('admin')}
                 className={`p-2 rounded-full transition-colors ${
@@ -1380,7 +1402,6 @@ export default function App() {
             >
               {isLoggedIn ? <LogOut className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
             </button>
-          </div>
           </div>
         </header>
       )}
@@ -3542,16 +3563,6 @@ export default function App() {
           >
             <Share2 className="w-5 h-5 sm:w-6 sm:h-6" />
             <span className="text-[11px] sm:text-xs">Referral</span>
-          </button>
-
-          <button
-            onClick={() => {
-              setShowFeedbackModal(true);
-            }}
-            className={`flex flex-col items-center space-y-1 transition-colors text-neutral-400 hover:text-neutral-600`}
-          >
-            <MessageCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[11px] sm:text-xs">Feedback</span>
           </button>
           </div>
         </nav>
