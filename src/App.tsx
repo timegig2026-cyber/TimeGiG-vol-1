@@ -1170,8 +1170,8 @@ export default function App() {
 
   const [isSubmittingProof, setIsSubmittingProof] = useState(false);
 
-  const handleSubmitProof = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmitProof = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) e.preventDefault();
     if (!selectedOption) {
       setToastMessage('⚠️ Please select a top-up option');
       setTimeout(() => setToastMessage(null), 3000);
@@ -2171,7 +2171,7 @@ export default function App() {
                   </div>
                 </div>
 
-                <form onSubmit={handleSubmitProof} className="space-y-4 text-left">
+                <div className="space-y-4 text-left">
                   <div>
                     <label className="block text-xs font-medium text-neutral-700 mb-1.5">
                       Upload Proof of Payment (Document/Image)
@@ -2179,7 +2179,6 @@ export default function App() {
                     <div className="border-2 border-dashed border-neutral-300 hover:border-black rounded-xl p-6 text-center bg-white cursor-pointer transition-colors relative">
                       <input
                         type="file"
-                        required
                         onChange={(e) => setProofFile(e.target.files?.[0] || null)}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
@@ -2194,13 +2193,14 @@ export default function App() {
                             </>
                           )}
                         </div>
-                        <span className="text-[10px] text-neutral-400">PDF, PNG, JPG up to 10MB</span>
+                        <span className="text-[10px] text-neutral-400">PDF, PNG, JPG up to 1MB</span>
                       </div>
                     </div>
                   </div>
 
                   <button
-                    type="submit"
+                    type="button"
+                    onClick={handleSubmitProof}
                     disabled={isSubmittingProof}
                     className="w-full py-3.5 bg-black text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
@@ -2213,7 +2213,7 @@ export default function App() {
                       <span>Submit Proof of Payment</span>
                     )}
                   </button>
-                </form>
+                </div>
               </div>
             )}
           </div>
