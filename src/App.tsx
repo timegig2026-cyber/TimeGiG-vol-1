@@ -232,10 +232,38 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [activeScreen, setActiveScreen] = useState<Screen>('signup');
-  const [walletStep, setWalletStep] = useState<WalletStep>('overview');
+  const [activeScreen, setActiveScreenState] = useState<Screen>(() => {
+    const saved = localStorage.getItem('activeScreen');
+    return (saved as Screen) || 'signup';
+  });
+  const setActiveScreen = (screen: Screen) => {
+    localStorage.setItem('activeScreen', screen);
+    setActiveScreenState(screen);
+  };
+
+  const [walletStep, setWalletStepState] = useState<WalletStep>(() => {
+    const saved = localStorage.getItem('walletStep');
+    return (saved as WalletStep) || 'overview';
+  });
+  const setWalletStep = (step: WalletStep) => {
+    localStorage.setItem('walletStep', step);
+    setWalletStepState(step);
+  };
+
   const [balance, setBalance] = useState<number>(0);
-  const [selectedOption, setSelectedOption] = useState<CoinOption | null>(null);
+
+  const [selectedOption, setSelectedOptionState] = useState<CoinOption | null>(() => {
+    const saved = localStorage.getItem('selectedOption');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const setSelectedOption = (opt: CoinOption | null) => {
+    if (opt) {
+      localStorage.setItem('selectedOption', JSON.stringify(opt));
+    } else {
+      localStorage.removeItem('selectedOption');
+    }
+    setSelectedOptionState(opt);
+  };
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [showReviewPopup, setShowReviewPopup] = useState<boolean>(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -458,7 +486,12 @@ export default function App() {
           console.error("Firestore initialization error:", error);
         }
         
-        setActiveScreen('home');
+        const savedScreen = localStorage.getItem('activeScreen');
+        if (savedScreen && savedScreen !== 'signup') {
+          setActiveScreenState(savedScreen as Screen);
+        } else {
+          setActiveScreen('home');
+        }
       } else {
         setIsLoggedIn(false);
         setIsAdminUser(false);
@@ -736,6 +769,67 @@ export default function App() {
       }
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) {
+      setProofFile(null);
+      return;
+    }
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDimension = 1000;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > maxDimension) {
+                height *= maxDimension / width;
+                width = maxDimension;
+              }
+            } else {
+              if (height > maxDimension) {
+                width *= maxDimension / height;
+                height = maxDimension;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              canvas.toBlob((blob) => {
+                if (blob) {
+                  const compressedFile = new File([blob], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  setProofFile(compressedFile);
+                } else {
+                  setProofFile(file);
+                }
+              }, 'image/jpeg', 0.7);
+            } else {
+              setProofFile(file);
+            }
+          };
+          img.src = event.target.result as string;
+        } else {
+          setProofFile(file);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setProofFile(file);
+    }
   };
 
   const handleSaveProfile = async () => {
@@ -2179,7 +2273,7 @@ export default function App() {
                     <div className="border-2 border-dashed border-neutral-300 hover:border-black rounded-xl p-6 text-center bg-white cursor-pointer transition-colors relative">
                       <input
                         type="file"
-                        onChange={(e) => setProofFile(e.target.files?.[0] || null)}
+                        onChange={handleProofFileChange}
                         className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                       />
                       <div className="flex flex-col items-center space-y-2">
