@@ -1,0 +1,115 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profiles and metadata",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "isAdmin": { "type": "boolean" },
+        "referralCode": { "type": "string" },
+        "balance": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "isAdmin", "createdAt"]
+    },
+    "Gig": {
+      "title": "Gig",
+      "description": "Marketplace gigs",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "minLength": 3, "maxLength": 100 },
+        "price": { "type": "string" },
+        "location": { "type": "string" },
+        "description": { "type": "string", "maxLength": 2000 },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "imageUrls": { "type": "array" },
+        "date": { "type": "string" },
+        "authorId": { "type": "string" },
+        "category": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["title", "price", "location", "description", "authorId", "createdAt"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback submissions",
+      "type": "object",
+      "properties": {
+        "user": { "type": "string" },
+        "userId": { "type": "string" },
+        "text": { "type": "string", "maxLength": 1000 },
+        "date": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "text", "createdAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notifications",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "time": { "type": "string" },
+        "read": { "type": "boolean" },
+        "gigId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "message", "read", "createdAt"]
+    },
+    "Topup": {
+      "title": "Topup",
+      "description": "Wallet top-up records",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "status", "createdAt"]
+    },
+    "AgentCashout": {
+      "title": "Agent Cashout",
+      "description": "Agent cash-out requests",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Individual user profiles"
+    },
+    "gigs/{gigId}": {
+      "schema": "Gig",
+      "description": "Individual marketplace gigs"
+    },
+    "feedbacks/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "Individual feedback entries"
+    },
+    "notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Individual notifications"
+    },
+    "topups/{topupId}": {
+      "schema": "Topup",
+      "description": "Individual top-up records"
+    },
+    "agent_cashouts/{cashoutId}": {
+      "schema": "AgentCashout",
+      "description": "Individual cash-out requests"
+    }
+  }
+}

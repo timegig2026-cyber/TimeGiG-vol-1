@@ -1,0 +1,6 @@
+{
+  "name": "Wallet and Referral Portal",
+  "description": "Full-featured GIGs marketplace, wallet with admin top-up profits, banking detail verification for referrals, and direct messaging chat feature.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

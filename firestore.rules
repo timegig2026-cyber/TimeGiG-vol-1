@@ -1,0 +1,90 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // --- Helper Functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true ||
+        request.auth.token.email == 'timegig2026@gmail.com'
+      );
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // --- Validation Helpers ---
+    function isValidGig(data) {
+      return data.title is string && data.title.size() >= 3 && data.title.size() <= 100 &&
+             data.authorId is string && data.authorId == request.auth.uid;
+    }
+
+    function isValidNotification(data) {
+      return data.userId is string && (isAdmin() || data.userId == request.auth.uid) &&
+             data.title is string && data.message is string;
+    }
+
+    // --- Default Deny ---
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Collections ---
+
+    // User profiles
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Users can manage their own non-admin profile data
+      allow create, update: if isOwner(userId) && (!incoming().hasAny(['isAdmin']) || existing().isAdmin == incoming().isAdmin);
+      allow write: if isAdmin();
+    }
+
+    // Gigs
+    match /gigs/{gigId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isValidGig(incoming());
+      allow update: if isAdmin() || (isOwner(existing().authorId) && isValidGig(incoming()));
+      allow delete: if isAdmin() || isOwner(existing().authorId);
+    }
+
+    // Feedbacks
+    match /feedbacks/{feedbackId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidNotification(incoming());
+      allow update: if isSignedIn() && existing().userId == request.auth.uid && incoming().userId == request.auth.uid;
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
+    // Topups
+    match /topups/{topupId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // Agent Cashouts
+    match /agent_cashouts/{cashoutId} {
+      allow read: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
