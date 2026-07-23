@@ -231,6 +231,17 @@ const PROVINCE_LOCATIONS: Record<string, string[]> = {
 };
 
 export default function App() {
+  const [visits, setVisits] = useState<any[]>([]);
+
+  const visitSessionId = React.useMemo(() => {
+    let id = sessionStorage.getItem('visit_session_id');
+    if (!id) {
+      id = 'sess_' + Math.random().toString(36).substring(2, 15) + '_' + Date.now();
+      sessionStorage.setItem('visit_session_id', id);
+    }
+    return id;
+  }, []);
+
   const [user, setUser] = useState<User | null>(null);
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
@@ -600,6 +611,47 @@ export default function App() {
       setFeedbacks(feedbacksData);
     }, (error) => {
       console.error("Feedbacks sync error:", error);
+    });
+    return () => unsubscribe();
+  }, [isAdminUser]);
+
+  // Heartbeat ping effect for all users/guests to track live online status and visits
+  useEffect(() => {
+    const updateHeartbeat = async () => {
+      try {
+        const visitDocRef = doc(db, 'visits', visitSessionId);
+        await setDoc(visitDocRef, {
+          userId: user ? user.uid : null,
+          email: user ? user.email : null,
+          isVerified: !!(user && isProfileLocked),
+          lastActiveAt: serverTimestamp(),
+          createdAt: serverTimestamp()
+        }, { merge: true });
+      } catch (err) {
+        console.warn("Heartbeat update error:", err);
+      }
+    };
+
+    updateHeartbeat();
+    const interval = setInterval(updateHeartbeat, 15000);
+    return () => clearInterval(interval);
+  }, [user, isProfileLocked, visitSessionId]);
+
+  // Sync Visits from Firestore for Admin
+  useEffect(() => {
+    if (!isAdminUser) {
+      setVisits([]);
+      return;
+    }
+    const q = query(collection(db, 'visits'), orderBy('lastActiveAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const visitsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setVisits(visitsData);
+    }, (error) => {
+      console.error("Visits sync error:", error);
     });
     return () => unsubscribe();
   }, [isAdminUser]);
@@ -1674,6 +1726,19 @@ export default function App() {
 
   const totalProfit = approvedTopupsProfit + approvedCashoutsNetProfit;
 
+  const activeVisitsList = React.useMemo(() => {
+    const now = Date.now();
+    return visits.filter(v => {
+      if (!v.lastActiveAt) return false;
+      const lastActiveMs = v.lastActiveAt.toMillis ? v.lastActiveAt.toMillis() : new Date(v.lastActiveAt).getTime();
+      return (now - lastActiveMs) < 45000; // active within 45 seconds
+    });
+  }, [visits]);
+
+  const liveOnlineVisitsCount = activeVisitsList.length;
+  const liveOnlineVerifiedUsers = activeVisitsList.filter(v => v.isVerified);
+  const liveOnlineVerifiedUsersCount = liveOnlineVerifiedUsers.length;
+
   const [authLoading, setAuthLoading] = useState(false);
   
   const handleForgotPassword = async () => {
@@ -1920,18 +1985,16 @@ export default function App() {
             )}
 
             {/* Logout Top Corner Icon Button */}
-            <button
-              onClick={handleLogout}
-              className={`p-2 rounded-full transition-colors relative ${
-                isLoggedIn
-                  ? 'text-neutral-600 hover:bg-neutral-100 hover:text-rose-500'
-                  : 'text-white bg-black hover:bg-neutral-900 shadow-xs'
-              }`}
-              title={isLoggedIn ? "Log Out" : "Log In"}
-              aria-label={isLoggedIn ? "Log Out" : "Log In"}
-            >
-              {isLoggedIn ? <LogOut className="w-5 h-5" /> : <LogIn className="w-5 h-5" />}
-            </button>
+            {isLoggedIn && (
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-full transition-colors relative text-neutral-600 hover:bg-neutral-100 hover:text-rose-500"
+                title="Log Out"
+                aria-label="Log Out"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </header>
       )}
@@ -3797,6 +3860,67 @@ export default function App() {
                 <span className="text-[11px] text-neutral-300 block">Total revenue generated from approved coin top-ups</span>
               </div>
             </div>
+
+            {/* Live Telemetry / Monitor Center */}
+            <div className="grid grid-cols-2 gap-4 w-full">
+              {/* Live Online Visits Card */}
+              <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
+                <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
+                <div className="relative z-10 flex items-center justify-between">
+                  <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Live Online Visits</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] text-emerald-600 font-bold uppercase">Live</span>
+                  </div>
+                </div>
+                <div className="relative z-10">
+                  <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVisitsCount}</div>
+                  <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Active concurrent visitors on the platform</p>
+                </div>
+              </div>
+
+              {/* Live Online Verified Users Card */}
+              <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
+                <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
+                <div className="relative z-10 flex items-center justify-between">
+                  <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Online Verified</span>
+                  <div className="flex items-center space-x-1.5">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                    </span>
+                    <span className="text-[10px] text-blue-600 font-bold uppercase">Live</span>
+                  </div>
+                </div>
+                <div className="relative z-10">
+                  <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVerifiedUsersCount}</div>
+                  <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Online verified users with completed profiles</p>
+                </div>
+              </div>
+            </div>
+
+            {/* List of Live Online Verified Users */}
+            {liveOnlineVerifiedUsersCount > 0 && (
+              <div className="w-full bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center space-x-1.5">
+                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                    <span>Currently Active Verified Users ({liveOnlineVerifiedUsersCount})</span>
+                  </span>
+                </div>
+                <div className="divide-y divide-blue-100/40">
+                  {liveOnlineVerifiedUsers.map((v, idx) => (
+                    <div key={v.id || idx} className="py-2 flex items-center justify-between text-xs">
+                      <span className="font-semibold text-blue-950">{v.email || 'Anonymous User'}</span>
+                      <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full font-medium">Active now</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Top-up Submissions Review Queue */}
             <div className="w-full space-y-3">

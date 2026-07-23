@@ -96,6 +96,19 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["userId", "amount", "status", "createdAt"]
+    },
+    "Visit": {
+      "title": "Visit",
+      "description": "Active visitor sessions",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "email": { "type": "string" },
+        "isVerified": { "type": "boolean" },
+        "lastActiveAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["lastActiveAt", "createdAt"]
     }
   },
   "firestore": {
@@ -122,6 +135,10 @@
     "agent_cashouts/{cashoutId}": {
       "schema": "AgentCashout",
       "description": "Individual cash-out requests"
+    },
+    "visits/{visitId}": {
+      "schema": "Visit",
+      "description": "Active user sessions and heartbeats"
     }
   }
 }
