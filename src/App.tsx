@@ -272,54 +272,20 @@ export default function App() {
     setSelectedOptionState(opt);
   };
 
-  const [proofFile, setProofFileState] = useState<File | null>(() => {
-    try {
-      const saved = localStorage.getItem('proofFile');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        console.log(`[DEBUG] Restoring cached proofFile from localStorage: "${parsed.name}" (${parsed.type})`);
-        const arr = parsed.base64.split(',');
-        const mime = arr[0].match(/:(.*?);/)[1];
-        const bstr = atob(arr[1]);
-        let n = bstr.length;
-        const u8arr = new Uint8Array(n);
-        while (n--) {
-          u8arr[n] = bstr.charCodeAt(n);
-        }
-        const blob = new Blob([u8arr], { type: mime });
-        return new File([blob], parsed.name, { type: parsed.type });
-      }
-    } catch (e) {
-      console.error("[DEBUG] Error restoring proofFile from localStorage:", e);
+  const [proofFile, setProofFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!proofFile) {
+      setPreviewUrl(null);
+      return;
     }
-    return null;
-  });
-  const setProofFile = (file: File | null) => {
-    console.log(`[DEBUG] setProofFile called with:`, file ? `${file.name} (${file.type}, ${file.size} bytes)` : 'null', `Call stack:`, new Error().stack);
-    if (!file) {
-      localStorage.removeItem('proofFile');
-      setProofFileState(null);
-    } else {
-      setProofFileState(file);
-      // Asynchronously store file in localStorage to survive memory pressure reloads
-      const fileReader = new FileReader();
-      fileReader.onload = (ev) => {
-        if (ev.target?.result) {
-          try {
-            localStorage.setItem('proofFile', JSON.stringify({
-              name: file.name,
-              type: file.type,
-              base64: ev.target.result
-            }));
-            console.log(`[DEBUG] Successfully cached proofFile in localStorage.`);
-          } catch (e) {
-            console.error("[DEBUG] Failed to cache proofFile in localStorage (might exceed quota):", e);
-          }
-        }
-      };
-      fileReader.readAsDataURL(file);
-    }
-  };
+    const url = URL.createObjectURL(proofFile);
+    setPreviewUrl(url);
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [proofFile]);
 
   const [showReviewPopup, setShowReviewPopup] = useState<boolean>(false);
   const [showSplash, setShowSplash] = useState(true);
@@ -331,32 +297,15 @@ export default function App() {
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [previewRotation, setPreviewRotation] = useState<number>(0);
 
-  const [scanResults, setScanResultsState] = useState<{
+  const [scanResults, setScanResults] = useState<{
     txId: string;
     amount: string;
     matched: boolean;
     confidence: number;
     timestamp: string;
-  } | null>(() => {
-    const saved = localStorage.getItem('scanResults');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const setScanResults = (results: typeof scanResults) => {
-    if (results) {
-      localStorage.setItem('scanResults', JSON.stringify(results));
-    } else {
-      localStorage.removeItem('scanResults');
-    }
-    setScanResultsState(results);
-  };
+  } | null>(null);
 
-  const [isOcrVerified, setIsOcrVerifiedState] = useState<boolean>(() => {
-    return localStorage.getItem('isOcrVerified') === 'true';
-  });
-  const setIsOcrVerified = (verified: boolean) => {
-    localStorage.setItem('isOcrVerified', String(verified));
-    setIsOcrVerifiedState(verified);
-  };
+  const [isOcrVerified, setIsOcrVerified] = useState<boolean>(false);
 
   const [copiedStates, setCopiedStates] = useState<{[key: string]: boolean}>({});
   const handleCopyField = (field: string, value: string) => {
@@ -2759,7 +2708,7 @@ export default function App() {
                             <div className="flex flex-col items-center space-y-2 pt-2 border-t border-neutral-200">
                               <div className="relative border border-neutral-200 bg-neutral-100 rounded-lg overflow-hidden max-h-40 flex items-center justify-center p-2 w-full">
                                 <img
-                                  src={URL.createObjectURL(proofFile)}
+                                  src={previewUrl || ''}
                                   alt="Proof thumbnail"
                                   className="max-h-36 object-contain rounded transition-transform duration-300 shadow-xs"
                                   style={{ transform: `rotate(${previewRotation}deg)` }}
