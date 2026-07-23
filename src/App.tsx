@@ -854,7 +854,7 @@ export default function App() {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
           setIsOcrVerified(true);
-          setToastMessage('✅ AI Smart Scan completed: Proof of payment verified!');
+          setToastMessage('✅ AI Smart Scan completed: POP verified!');
           setTimeout(() => setToastMessage(null), 3000);
         }, 500);
       }
@@ -1445,7 +1445,7 @@ export default function App() {
       return;
     }
     if (!proofFile) {
-      setToastMessage('⚠️ Please upload a proof of payment');
+      setToastMessage('⚠️ Please upload a POP');
       setTimeout(() => setToastMessage(null), 3000);
       return;
     }
@@ -1493,7 +1493,7 @@ export default function App() {
       setProofFile(null); // Clear after success
     } catch (error) {
       console.error("Error submitting proof:", error);
-      setToastMessage('❌ Error submitting proof. Please try again.');
+      setToastMessage('❌ Error submitting POP. Please try again.');
       setTimeout(() => setToastMessage(null), 3000);
     } finally {
       setIsSubmittingProof(false);
@@ -1558,7 +1558,7 @@ export default function App() {
         await addDoc(collection(db, 'notifications'), {
           userId: target.userId,
           title: 'Top-Up Rejected',
-          message: `Your top-up of ${target.option.label} (${target.option.price}) was rejected. Please check your proof of payment and try again.`,
+          message: `Your top-up of ${target.option.label} (${target.option.price}) was rejected. Please check your POP and try again.`,
           time: 'Just now',
           read: false,
           createdAt: serverTimestamp()
@@ -2450,7 +2450,7 @@ export default function App() {
                     </button>
                     <div>
                       <h1 className="text-xl font-bold text-neutral-900">Advanced Top-up Portal</h1>
-                      <p className="text-xs text-neutral-500">Secure automated proof-of-payment verification</p>
+                      <p className="text-xs text-neutral-500">Secure automated POP verification</p>
                     </div>
                   </div>
                   <div className="px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full text-[10px] font-semibold text-amber-700 flex items-center space-x-1">
@@ -2593,7 +2593,7 @@ export default function App() {
                   <div className="space-y-5 animate-fadeIn text-left">
                     <div>
                       <label className="block text-xs font-bold text-neutral-800 mb-1.5 uppercase tracking-wider">
-                        Upload Proof of Payment (PDF or Image)
+                        Upload POP (PDF or Image)
                       </label>
                       
                       {/* Drag & Drop Container */}
@@ -2628,7 +2628,7 @@ export default function App() {
                               <span className="font-semibold text-neutral-900 break-all">{proofFile.name}</span>
                             ) : (
                               <>
-                                <span className="font-bold text-black underline">Choose files</span> or drag & drop proof here
+                                <span className="font-bold text-black underline">Choose files</span> or drag & drop POP here
                               </>
                             )}
                           </div>
@@ -2785,7 +2785,7 @@ export default function App() {
                       ) : (
                         <>
                           <ShieldCheck className="w-4 h-4" />
-                          <span>Submit Verified Proof</span>
+                          <span>Submit Verified POP</span>
                         </>
                       )}
                     </button>
@@ -2804,12 +2804,12 @@ export default function App() {
                     <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-3.5">
                       <h4 className="text-sm font-bold text-neutral-900 flex items-center space-x-1.5">
                         <BookOpen className="w-4 h-4 text-amber-500" />
-                        <span>Accepted Proof of Payment Guide</span>
+                        <span>Accepted POP Guide</span>
                       </h4>
                       
                       <div className="space-y-2.5 text-xs text-neutral-600">
                         <p>
-                          Our advanced scanning algorithms automatically verify transactions instantly if the uploaded proof conforms to standard banking guidelines:
+                          Our advanced scanning algorithms automatically verify transactions instantly if the uploaded POP conforms to standard banking guidelines:
                         </p>
                         
                         <div className="grid grid-cols-1 gap-2 pt-1">
@@ -3781,7 +3781,7 @@ export default function App() {
 
             {/* Top-up Submissions Review Queue */}
             <div className="w-full space-y-3">
-              <h2 className="text-sm font-medium text-neutral-700">Proof of Payment Review Queue</h2>
+              <h2 className="text-sm font-medium text-neutral-700">POP Review Queue</h2>
               {topUps.length === 0 ? (
                 <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
                   <BlurryCoinsBg opacity={0.15} overlay="bg-neutral-50/80" />
@@ -4110,7 +4110,7 @@ export default function App() {
             {viewingDocument.fileUrl && viewingDocument.fileName.match(/\.(png|jpg|jpeg|webp)$/i) ? (
               <img
                 src={viewingDocument.fileUrl}
-                alt="Proof of Payment"
+                alt="POP"
                 className="max-h-[80vh] max-w-full object-contain rounded-xl border border-neutral-700 shadow-2xl"
               />
             ) : (
@@ -4137,7 +4137,7 @@ export default function App() {
                   }}
                   className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
                 >
-                  Reject Proof
+                  Reject POP
                 </button>
                 <button
                   onClick={() => {
@@ -4146,7 +4146,7 @@ export default function App() {
                   }}
                   className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
                 >
-                  Approve Proof
+                  Approve POP
                 </button>
               </>
             )}
@@ -4170,7 +4170,7 @@ export default function App() {
             <div className="space-y-1">
               <h3 className="text-lg font-semibold text-neutral-900">Payment Under Review</h3>
               <p className="text-sm text-neutral-600 leading-relaxed">
-                Your proof of payment has been submitted successfully. Review takes about 15 to 20 minutes.
+                Your POP has been submitted successfully. Review takes about 15 to 20 minutes.
               </p>
             </div>
             <button
