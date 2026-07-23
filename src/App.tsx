@@ -6,6 +6,8 @@
 import React, { useState, useEffect } from 'react';
 import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle } from 'lucide-react';
 import { auth, db } from './lib/firebase';
+// @ts-ignore
+import cashBg from './assets/images/cash_background_1784802114572.jpg';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -337,6 +339,8 @@ export default function App() {
   const [pinInput, setPinInput] = useState('');
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [showProfileCongrats, setShowProfileCongrats] = useState(false);
+
+  const isEnteringPin = activeScreen === 'profile' && isProfileLocked && pinInput !== profilePin;
 
   const appUrl = window.location.origin;
   const userReferralLink = `${appUrl}/?ref=${referralCode}`;
@@ -1849,8 +1853,13 @@ export default function App() {
       )}
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
-      {activeScreen !== 'chat' && (
-        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+      {activeScreen !== 'chat' && !isEnteringPin && (
+        <header className="w-full px-6 py-3 flex items-center justify-between border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+          {/* App Name in Left Corner */}
+          <div className="flex items-center space-x-2 relative z-10">
+            <AppNameWithCoins className="font-bold text-neutral-900 text-sm tracking-wider uppercase" />
+          </div>
+
           <div className="flex items-center space-x-1 sm:space-x-2 relative z-10">
             {/* Feedback small icon */}
             <button
@@ -2020,8 +2029,18 @@ export default function App() {
       <main className={`flex-1 flex flex-col items-center justify-start ${activeScreen === 'chat' || activeScreen === 'signup' ? 'p-0 sm:p-2 h-full overflow-hidden max-w-4xl' : 'p-4 sm:p-6 max-w-2xl'} mx-auto w-full`}>
         {activeScreen === 'signup' && (
           <div className="w-full h-full flex flex-col items-center justify-center relative p-6 animate-fadeIn">
-            <BlurryCoinsBg opacity={0.2} overlay="bg-neutral-50/80" />
-            <div className="relative z-10 w-full max-w-sm bg-white rounded-3xl shadow-xl border border-neutral-200/60 p-8 space-y-6">
+            {/* Blurry paper money (cash) background wallpaper */}
+            <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden select-none">
+              <img
+                src={cashBg}
+                alt="Paper money background"
+                className="w-full h-full object-cover blur-xl scale-110"
+                style={{ opacity: 0.9 }}
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
+            </div>
+            <div className="relative z-10 w-full max-w-sm bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 p-8 space-y-6">
               {showCongrats ? (
                 <div className="text-center space-y-4 py-8 animate-fadeIn">
                   <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -4773,7 +4792,7 @@ export default function App() {
       )}
 
       {/* Bottom Menu Bar with GIGs, Wallet, Chat, and Referral (Hidden on Chat Screen and Signup) */}
-      {activeScreen !== 'chat' && activeScreen !== 'signup' && (
+      {activeScreen !== 'chat' && activeScreen !== 'signup' && !isEnteringPin && (
         <nav className="w-full border-t border-neutral-200 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/75 backdrop-blur-xl overflow-hidden shadow-[0_-4px_30px_rgba(0,0,0,0.03)]">
           <div className="relative z-10 flex items-center justify-around w-full">
           <button
@@ -4844,7 +4863,18 @@ export default function App() {
             }`}
           >
             <div className="relative">
-              <UserCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              {profilePhotoURL ? (
+                <img
+                  src={profilePhotoURL}
+                  alt="Profile"
+                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border ${
+                    activeScreen === 'profile' ? 'border-neutral-950 ring-1 ring-neutral-950/20' : 'border-neutral-300'
+                  }`}
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <UserCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+              )}
               {isProfileLocked && (
                 <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm">
                   <Lock className="w-2.5 h-2.5" />
