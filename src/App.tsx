@@ -351,6 +351,16 @@ export default function App() {
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [showProfileCongrats, setShowProfileCongrats] = useState(false);
 
+  // ID Document Verification States
+  const [isIdVerified, setIsIdVerified] = useState(false);
+  const [idDocumentUrl, setIdDocumentUrl] = useState('');
+  const [idMatchPercentage, setIdMatchPercentage] = useState<number>(0);
+  const [idExtractedName, setIdExtractedName] = useState('');
+  const [idExtractedSurname, setIdExtractedSurname] = useState('');
+  const [idScanMessage, setIdScanMessage] = useState('');
+  const [isIdScanning, setIsIdScanning] = useState(false);
+  const [showIdDocument, setShowIdDocument] = useState(false);
+
   const isEnteringPin = activeScreen === 'profile' && isProfileLocked && pinInput !== profilePin;
 
   const appUrl = window.location.origin;
@@ -481,6 +491,11 @@ export default function App() {
             setProfilePhotoURL(data.photoURL || '');
             setIsProfileLocked(data.isLocked || false);
             setProfilePin(data.pin || '');
+            setIsIdVerified(data.isIdVerified || false);
+            setIdDocumentUrl(data.idDocumentUrl || '');
+            setIdMatchPercentage(data.idMatchPercentage || 0);
+            setIdExtractedName(data.idExtractedName || '');
+            setIdExtractedSurname(data.idExtractedSurname || '');
             
             if (data.referralCode) {
               setReferralCode(data.referralCode);
@@ -563,6 +578,13 @@ export default function App() {
         setIsLoggedIn(false);
         setIsAdminUser(false);
         setBalance(0);
+        setIsIdVerified(false);
+        setIdDocumentUrl('');
+        setIdMatchPercentage(0);
+        setIdExtractedName('');
+        setIdExtractedSurname('');
+        setIdScanMessage('');
+        setIsIdScanning(false);
         
         const savedScreen = localStorage.getItem('activeScreen');
         if (savedScreen !== 'signup') {
@@ -623,7 +645,7 @@ export default function App() {
         await setDoc(visitDocRef, {
           userId: user ? user.uid : null,
           email: user ? user.email : null,
-          isVerified: !!(user && isProfileLocked),
+          isVerified: !!(user && (isProfileLocked || isIdVerified)),
           lastActiveAt: serverTimestamp(),
           createdAt: serverTimestamp()
         }, { merge: true });
@@ -635,7 +657,7 @@ export default function App() {
     updateHeartbeat();
     const interval = setInterval(updateHeartbeat, 15000);
     return () => clearInterval(interval);
-  }, [user, isProfileLocked, visitSessionId]);
+  }, [user, isProfileLocked, isIdVerified, visitSessionId]);
 
   // Sync Visits from Firestore for Admin
   useEffect(() => {
@@ -886,6 +908,136 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const handleIdDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!profileFirstName.trim() || !profileSurname.trim()) {
+      setToastMessage('⚠️ Please fill in your First Name and Surname first!');
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
+
+    setIsIdScanning(true);
+    setIdScanMessage('Preparing document and compressing...');
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      if (event.target?.result) {
+        const base64DataUrl = event.target.result as string;
+        
+        // Compress image using canvas first to keep upload size manageable and fast
+        const img = new Image();
+        img.onload = async () => {
+          const canvas = document.createElement('canvas');
+          const maxDimension = 800; // Good balance for OCR scan resolution and file size
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > maxDimension) {
+              height *= maxDimension / width;
+              width = maxDimension;
+            }
+          } else {
+            if (height > maxDimension) {
+              width *= maxDimension / height;
+              height = maxDimension;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.85);
+            
+            setIdScanMessage('🤖 Submitting to AI Scan Engine...');
+            try {
+              const response = await fetch('/api/scan-id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  image: compressedBase64,
+                  mimeType: 'image/jpeg',
+                  firstName: profileFirstName.trim(),
+                  surname: profileSurname.trim()
+                })
+              });
+
+              if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error || 'Server error during scan');
+              }
+
+              const scanResults = await response.json();
+              console.log('[DEBUG] ID scan result:', scanResults);
+
+              if (scanResults.isMatch && scanResults.matchPercentage >= 70) {
+                setIdScanMessage('🛡️ Checking for duplicate accounts...');
+                
+                // Query Firestore for duplicate verified accounts with the same extracted names
+                const usersRef = collection(db, 'users');
+                const q = query(
+                  usersRef,
+                  where('idExtractedName', '==', scanResults.extractedName),
+                  where('idExtractedSurname', '==', scanResults.extractedSurname),
+                  where('isIdVerified', '==', true)
+                );
+                
+                const querySnapshot = await getDocs(q);
+                const duplicates = querySnapshot.docs.filter(doc => doc.id !== (user?.uid || ''));
+
+                if (duplicates.length > 0) {
+                  setIsIdScanning(false);
+                  setIdScanMessage('');
+                  setToastMessage('❌ Duplicate verification details detected!');
+                  setTimeout(() => setToastMessage(null), 5000);
+                  alert(`❌ Fraud Prevention Blocked:\n\nAnother account is already verified with this ID details:\nName: ${scanResults.extractedName} ${scanResults.extractedSurname}\n\nTo prevent duplicate accounts, you are blocked from registering multiple profiles.`);
+                  return;
+                }
+
+                // If no duplicates, verify and save!
+                setIdScanMessage('💾 Storing verified credentials...');
+                if (user) {
+                  await updateDoc(doc(db, 'users', user.uid), {
+                    isIdVerified: true,
+                    idDocumentUrl: compressedBase64,
+                    idMatchPercentage: scanResults.matchPercentage,
+                    idExtractedName: scanResults.extractedName,
+                    idExtractedSurname: scanResults.extractedSurname
+                  });
+                }
+
+                setIsIdVerified(true);
+                setIdDocumentUrl(compressedBase64);
+                setIdMatchPercentage(scanResults.matchPercentage);
+                setIdExtractedName(scanResults.extractedName);
+                setIdExtractedSurname(scanResults.extractedSurname);
+                
+                setToastMessage(`✅ ID verified successfully with ${scanResults.matchPercentage}% match!`);
+                setTimeout(() => setToastMessage(null), 4000);
+              } else {
+                alert(`❌ Verification Failed:\n\nThe name on your ID document does not match your profile details by at least 70%.\n\nExtracted from ID:\nName: ${scanResults.extractedName}\nSurname: ${scanResults.extractedSurname}\n\nProfile details:\nName: ${profileFirstName}\nSurname: ${profileSurname}\n\nCalculated Match: ${scanResults.matchPercentage}%\nReason: ${scanResults.reason}\n\nPlease correct your profile details or upload a clearer ID card.`);
+              }
+              setIsIdScanning(false);
+              setIdScanMessage('');
+            } catch (err: any) {
+              console.error('[DEBUG] ID scan error:', err);
+              setIsIdScanning(false);
+              setIdScanMessage('');
+              setToastMessage(`❌ Scan error: ${err.message || 'Error occurred'}`);
+              setTimeout(() => setToastMessage(null), 4000);
+            }
+          }
+        };
+        img.src = base64DataUrl;
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const triggerScanSimulation = (file: File) => {
     setIsScanningProof(true);
     setScanProgress(0);
@@ -1063,6 +1215,11 @@ export default function App() {
 
   const handleSaveProfile = async () => {
     if (!user) return;
+    if (!profilePin || profilePin.length !== 4 || !/^\d{4}$/.test(profilePin)) {
+      setToastMessage('⚠️ Please set a 4-digit security PIN code for your profile first');
+      setTimeout(() => setToastMessage(null), 4000);
+      return;
+    }
     if (!profilePhotoURL) {
       setToastMessage('⚠️ Please upload a profile picture first');
       setTimeout(() => setToastMessage(null), 3000);
@@ -3267,9 +3424,21 @@ export default function App() {
         )}
 
         {activeScreen === 'profile' && (
-          <div className="w-full flex-1 flex flex-col h-full animate-fadeIn overflow-hidden">
+          <div className="w-full flex-1 flex flex-col h-full animate-fadeIn overflow-hidden relative">
             {isProfileLocked && pinInput !== profilePin ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6 bg-white">
+              <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-6 bg-white relative">
+                {/* Back Arrow to exit lock / go to Home */}
+                <button
+                  onClick={() => {
+                    setPinInput('');
+                    setActiveScreen('home');
+                  }}
+                  className="absolute top-4 left-4 p-2.5 text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 rounded-xl transition-all flex items-center justify-center border border-neutral-200 bg-white shadow-3xs group"
+                  title="Back to Home"
+                >
+                  <ArrowLeft className="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" />
+                </button>
+
                 <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mb-4">
                   <Lock className="w-8 h-8 text-neutral-400" />
                 </div>
@@ -3460,6 +3629,111 @@ export default function App() {
                       />
                     </div>
                   </div>
+                </div>
+
+                {/* ID Document Verification Section */}
+                <div className="bg-neutral-50 rounded-2xl p-5 border border-neutral-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`p-2 rounded-lg shadow-xs ${isIdVerified ? 'bg-emerald-500/10 text-emerald-600' : 'bg-neutral-200 text-neutral-600'}`}>
+                        <ShieldCheck className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <p className="text-sm font-bold text-neutral-800">ID Verification</p>
+                          {isIdVerified ? (
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[9px] font-bold rounded-full border border-emerald-200">
+                              VERIFIED
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-bold rounded-full border border-amber-200 animate-pulse">
+                              REQUIRED
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10px] text-neutral-500">Scan ID to prevent duplicate accounts & unlock full access</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {isIdVerified ? (
+                    <div className="bg-white border border-neutral-100 rounded-xl p-4 space-y-3.5 shadow-xs">
+                      <div className="flex items-start justify-between">
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-neutral-400 uppercase">Extracted ID Credentials</p>
+                          <p className="text-sm font-bold text-neutral-800 flex items-center gap-1">
+                            <span>{idExtractedName} {idExtractedSurname}</span>
+                            <Check className="w-3.5 h-3.5 text-emerald-600 font-bold" />
+                          </p>
+                          <p className="text-[10px] text-emerald-600 font-medium">
+                            Matched {idMatchPercentage}% with profile details
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowIdDocument(!showIdDocument)}
+                          className="flex items-center space-x-1.5 text-xs text-neutral-600 hover:text-black bg-neutral-100 px-2.5 py-1.5 rounded-lg transition-colors border border-neutral-200"
+                        >
+                          {showIdDocument ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                          <span>{showIdDocument ? 'Hide ID Document' : 'View ID Document'}</span>
+                        </button>
+                      </div>
+
+                      {showIdDocument && idDocumentUrl && (
+                        <div className="relative border border-neutral-200 rounded-lg overflow-hidden max-w-sm mx-auto animate-fadeIn mt-2 bg-neutral-900 flex items-center justify-center p-1">
+                          <img
+                            src={idDocumentUrl}
+                            alt="Uploaded ID Card"
+                            className="max-h-56 object-contain rounded"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="text-[10px] text-neutral-400 bg-neutral-50 p-2.5 rounded-lg border border-neutral-100 leading-relaxed flex items-start gap-1.5">
+                        <Lock className="w-3 h-3 text-neutral-400 shrink-0 mt-0.5" />
+                        <span>This ID details is locked and bound to your account. Multiple profiles using the same ID details are prohibited to secure the ecosystem from duplicate accounts.</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="text-[11px] text-neutral-600 leading-relaxed bg-white border border-neutral-100 p-4 rounded-xl space-y-2">
+                        <p className="font-semibold flex items-center gap-1.5 text-neutral-800">
+                          <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                          Fraud Prevention Policy:
+                        </p>
+                        <p>
+                          To keep our community secure and completely fair, duplicate accounts are blocked. The name and surname printed on your physical ID must match your typed profile details by at least <strong className="text-black font-semibold">70%</strong> to pass verification.
+                        </p>
+                      </div>
+
+                      {isIdScanning ? (
+                        <div className="bg-white border border-neutral-200 border-dashed rounded-xl p-8 flex flex-col items-center justify-center text-center space-y-4">
+                          <div className="relative flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin" />
+                            <ShieldCheck className="w-5 h-5 text-emerald-600 absolute animate-pulse" />
+                          </div>
+                          <div className="space-y-1">
+                            <p className="text-sm font-bold text-neutral-800 animate-pulse">{idScanMessage}</p>
+                            <p className="text-[10px] text-neutral-400">Our AI is extracting credentials and running identity check...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="flex flex-col items-center justify-center border-2 border-dashed border-neutral-200 hover:border-black rounded-xl p-6 bg-white cursor-pointer group transition-all">
+                            <Upload className="w-8 h-8 text-neutral-400 group-hover:text-black transition-colors mb-2.5" />
+                            <span className="text-xs font-bold text-neutral-800">Upload ID Document (Image)</span>
+                            <span className="text-[10px] text-neutral-400 mt-1">PNG, JPG or JPEG. Max size 10MB.</span>
+                            <input 
+                              type="file" 
+                              className="hidden" 
+                              accept="image/*" 
+                              onChange={handleIdDocumentUpload} 
+                            />
+                          </label>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Location */}

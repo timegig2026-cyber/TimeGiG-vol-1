@@ -21,6 +21,11 @@
         "pin": { "type": "string", "pattern": "^[0-9]{4}$" },
         "photoURL": { "type": "string" },
         "isAgent": { "type": "boolean" },
+        "isIdVerified": { "type": "boolean" },
+        "idDocumentUrl": { "type": "string" },
+        "idMatchPercentage": { "type": "number" },
+        "idExtractedName": { "type": "string" },
+        "idExtractedSurname": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["email", "isAdmin", "createdAt"]
