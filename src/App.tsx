@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle } from 'lucide-react';
+import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 // @ts-ignore
 import cashBg from './assets/images/cash_background_1784802114572.jpg';
@@ -271,6 +271,11 @@ export default function App() {
   };
 
   const [balance, setBalance] = useState<number>(0);
+  const [profitResetOffset, setProfitResetOffset] = useState<number>(() => {
+    const saved = localStorage.getItem('profitResetOffset');
+    return saved ? parseFloat(saved) || 0 : 0;
+  });
+  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
 
   const [selectedOption, setSelectedOptionState] = useState<CoinOption | null>(() => {
     const saved = localStorage.getItem('selectedOption');
@@ -476,6 +481,9 @@ export default function App() {
             const data = userDoc.data();
             setIsAdminUser(data.isAdmin || currentUser.email?.toLowerCase() === 'timegig2026@gmail.com'.toLowerCase());
             setBalance(data.balance || 0);
+            const firestoreOffset = data.profitResetOffset || 0;
+            const localOffset = Number(localStorage.getItem('profitResetOffset') || 0);
+            setProfitResetOffset(Math.max(firestoreOffset, localOffset));
             setBankName(data.bankName || '');
             setAccountNumber(data.accountNumber || '');
             setBranchCode(data.branchCode || '');
@@ -514,13 +522,14 @@ export default function App() {
             const userData = {
               email: currentUser.email,
               isAdmin: isAdmin,
-              balance: 0,
+              balance: 50,
               referralCode: newReferralCode,
               isAgent: false,
               createdAt: serverTimestamp()
             };
             try {
               await setDoc(userDocRef, userData);
+              setBalance(50);
               
               // If there was an active referral code, record the referral
               const storedRefCode = localStorage.getItem('referralCode');
@@ -580,6 +589,7 @@ export default function App() {
         setIsLoggedIn(false);
         setIsAdminUser(false);
         setBalance(0);
+        setProfitResetOffset(0);
         setIsIdVerified(false);
         setIdDocumentUrl('');
         setIdMatchPercentage(0);
@@ -657,6 +667,8 @@ export default function App() {
     });
     return () => unsubscribe();
   }, [isAdminUser]);
+
+
 
   // Heartbeat ping effect for all users/guests to track live online status and visits
   useEffect(() => {
@@ -781,7 +793,6 @@ export default function App() {
   
   // Top-ups and Notifications state
   const [topUps, setTopUps] = useState<TopUpRecord[]>([]);
-  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -792,6 +803,7 @@ export default function App() {
   // Agent mode state
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
   const [expandedBoxId, setExpandedBoxId] = useState<string | null>(null);
+  const [showEarnGuide, setShowEarnGuide] = useState<boolean>(() => localStorage.getItem('showEarnGuide') !== 'false');
 
   // Banking details required before starting referrals
   const [bankName, setBankName] = useState<string>('');
@@ -1904,6 +1916,29 @@ export default function App() {
     }, 0);
 
   const totalProfit = approvedTopupsProfit + approvedCashoutsNetProfit;
+  const displayProfit = Math.max(0, totalProfit - profitResetOffset);
+
+  const handleResetProfit = async () => {
+    const confirmReset = window.confirm("Are you sure you want to reset the coin top-up profit balance to R0,00?");
+    if (!confirmReset) return;
+
+    try {
+      localStorage.setItem('profitResetOffset', totalProfit.toString());
+      setProfitResetOffset(totalProfit);
+
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        await setDoc(userRef, { profitResetOffset: totalProfit }, { merge: true });
+      }
+      
+      setToastMessage('💰 Coin top-up profit balance reset successfully!');
+      setTimeout(() => setToastMessage(null), 3000);
+    } catch (error) {
+      console.error("Error resetting profit balance:", error);
+      setToastMessage('💰 Coin top-up profit balance reset successfully!');
+      setTimeout(() => setToastMessage(null), 3000);
+    }
+  };
 
   const activeVisitsList = React.useMemo(() => {
     const now = Date.now();
@@ -2098,7 +2133,7 @@ export default function App() {
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && !isEnteringPin && (
-        <header className="w-full px-6 py-3 flex items-center justify-between border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+        <header className="w-full px-4 sm:px-6 py-2 flex items-center justify-between border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
           {/* App Name in Left Corner */}
           <div className="flex items-center space-x-2 relative z-10">
             <AppNameWithCoins className="font-bold text-neutral-900 text-sm tracking-wider uppercase" />
@@ -3126,40 +3161,68 @@ export default function App() {
             </div>
 
             {/* Real Cash Guidance Guide */}
-            <div className="w-full bg-linear-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/15 rounded-2xl p-5 space-y-3.5">
-              <h2 className="text-xs sm:text-sm font-bold text-amber-800 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
-                How to Earn Real Cash in 3 Steps
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
-                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
-                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
-                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">1</span>
-                    Save Bank Info
-                  </div>
-                  <p className="text-[11px] text-neutral-500 leading-relaxed">
-                    Securely enter your banking details below so we can process direct bank transfers to you.
-                  </p>
-                </div>
-                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
-                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
-                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">2</span>
-                    Invite Friends
-                  </div>
-                  <p className="text-[11px] text-neutral-500 leading-relaxed">
-                    Share your personalized reward box links on WhatsApp, X (Twitter), Facebook or Telegram.
-                  </p>
-                </div>
-                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
-                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
-                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">3</span>
-                    Get Direct Cash
-                  </div>
-                  <p className="text-[11px] text-neutral-500 leading-relaxed">
-                    When your invitees join and top up, claim up to R2,000.00 cash rewards instantly!
-                  </p>
-                </div>
+            <div className="w-full bg-linear-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/15 rounded-2xl p-4.5 space-y-3">
+              <div 
+                onClick={() => {
+                  const newVal = !showEarnGuide;
+                  setShowEarnGuide(newVal);
+                  localStorage.setItem('showEarnGuide', String(newVal));
+                }}
+                className="flex items-center justify-between cursor-pointer select-none group"
+              >
+                <h2 className="text-xs sm:text-sm font-bold text-amber-800 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                  <span>How to Earn Real Cash in 3 Steps</span>
+                </h2>
+                <button
+                  type="button"
+                  className="text-xs text-amber-700 hover:text-amber-950 font-bold flex items-center gap-1 transition-colors px-2 py-1 bg-amber-500/10 hover:bg-amber-500/20 rounded-lg"
+                >
+                  {showEarnGuide ? (
+                    <>
+                      <span>Hide Guide</span>
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </>
+                  ) : (
+                    <>
+                      <span>Show Guide</span>
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
               </div>
+
+              {showEarnGuide && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full pt-1.5 animate-fadeIn">
+                  <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                    <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">1</span>
+                      Save Bank Info
+                    </div>
+                    <p className="text-[11px] text-neutral-500 leading-relaxed">
+                      Securely enter your banking details below so we can process direct bank transfers to you.
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                    <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">2</span>
+                      Invite Friends
+                    </div>
+                    <p className="text-[11px] text-neutral-500 leading-relaxed">
+                      Share your personalized reward box links on WhatsApp, X (Twitter), Facebook or Telegram.
+                    </p>
+                  </div>
+                  <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                    <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                      <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">3</span>
+                      Get Direct Cash
+                    </div>
+                    <p className="text-[11px] text-neutral-500 leading-relaxed">
+                      When your invitees join and top up, claim up to R2,000.00 cash rewards instantly!
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Mandatory Banking Details Section */}
@@ -3303,7 +3366,7 @@ export default function App() {
                     <span className="text-xs text-neutral-400">Earn cash rewards as you refer users</span>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 w-full">
+                  <div className="grid grid-cols-2 gap-3.5 w-full">
                     {rewardBoxes.map((box) => {
                       const isExpanded = expandedBoxId === box.id;
                       const percentage = Math.min(100, Math.round((box.progress / box.referralsRequired) * 100));
@@ -3312,33 +3375,67 @@ export default function App() {
                         <div
                           key={box.id}
                           onClick={() => setExpandedBoxId(isExpanded ? null : box.id)}
-                          className={`relative overflow-hidden ${box.bgColor} border ${box.borderColor} p-5 rounded-2xl shadow-xs space-y-4 cursor-pointer transition-all hover:shadow-md group`}
+                          className={`relative overflow-hidden ${box.bgColor} border ${box.borderColor} ${isExpanded ? 'col-span-2 p-5 space-y-4' : 'col-span-1 p-3.5 space-y-3'} rounded-2xl shadow-xs cursor-pointer transition-all hover:shadow-md group`}
                         >
                           <BlurryCoinsBg opacity={0.22} overlay="bg-white/75 backdrop-blur-2xs" />
-                          <div className="relative z-10 space-y-4">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 rounded-xl bg-white/90 border border-neutral-200/80 flex items-center justify-center font-bold text-neutral-900 shadow-xs">
-                                  🎁
+                          <div className="relative z-10 space-y-3">
+                            {isExpanded ? (
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-3">
+                                  <div className="w-10 h-10 rounded-xl bg-white/90 border border-neutral-200/80 flex items-center justify-center font-bold text-neutral-900 shadow-xs">
+                                    🎁
+                                  </div>
+                                  <div>
+                                    <div className={`font-bold text-base ${box.color}`}>{box.reward} Cash Reward</div>
+                                    <div className="text-xs text-neutral-600">Refer {box.referralsRequired} valid referrals to top up {box.targetCoins}</div>
+                                  </div>
                                 </div>
-                                <div>
-                                  <div className={`font-bold text-base ${box.color}`}>{box.reward} Cash Reward</div>
-                                  <div className="text-xs text-neutral-600">Refer {box.referralsRequired} valid referrals to top up {box.targetCoins}</div>
+                                <span className={`text-xs font-semibold px-2.5 py-1 ${box.badgeBg} rounded-lg shadow-2xs`}>
+                                  {box.targetCoins}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-7 h-7 rounded-lg bg-white/90 border border-neutral-200/80 flex items-center justify-center font-bold text-neutral-900 shadow-xs text-xs shrink-0">
+                                    🎁
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className={`font-bold text-xs leading-tight truncate ${box.color}`}>{box.reward} Reward</div>
+                                    <div className="text-[9px] text-neutral-500 mt-0.5 font-medium truncate">Goal: {box.referralsRequired} Refs</div>
+                                  </div>
+                                </div>
+                                <span className={`text-[9px] font-semibold px-1.5 py-0.5 ${box.badgeBg} rounded-md shadow-3xs shrink-0`}>
+                                  {box.targetCoins}
+                                </span>
+                              </div>
+                            )}
+
+                            {!isExpanded ? (
+                              <div className="space-y-1">
+                                <div className="flex justify-between text-[9px] text-neutral-500 font-bold leading-none">
+                                  <span>Progress</span>
+                                  <span>{box.progress}/{box.referralsRequired}</span>
+                                </div>
+                                <div className="w-full bg-white/60 border border-neutral-100 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className="bg-black h-full rounded-full transition-all duration-500"
+                                    style={{ width: `${percentage}%` }}
+                                  ></div>
+                                </div>
+                                <div className="text-[9px] font-bold text-neutral-400 text-center pt-0.5 group-hover:text-neutral-600 transition-colors">
+                                  Tap to Share & Claim ▾
                                 </div>
                               </div>
-                              <span className={`text-xs font-semibold px-2.5 py-1 ${box.badgeBg} rounded-lg shadow-2xs`}>
-                                {box.targetCoins}
-                              </span>
-                            </div>
+                            ) : (
+                              <div className="text-[11px] font-medium text-neutral-500 flex items-center justify-between pt-1">
+                                <span>Hide progress details ▴</span>
+                                <span className="font-semibold text-neutral-700">{box.progress} / {box.referralsRequired} Referrals</span>
+                              </div>
+                            )}
 
-                          {/* Clickable toggle info */}
-                          <div className="text-[11px] font-medium text-neutral-500 flex items-center justify-between pt-1">
-                            <span>{isExpanded ? 'Hide progress details ▴' : 'Click to view progress & links ▾'}</span>
-                            <span className="font-semibold text-neutral-700">{box.progress} / {box.referralsRequired} Referrals</span>
-                          </div>
-
-                          {/* Expanded Progress Bar and Links */}
-                          {isExpanded && (
+                            {/* Expanded Progress Bar and Links */}
+                            {isExpanded && (
                             <div className="pt-3 border-t border-neutral-200/60 space-y-4 animate-fadeIn" onClick={(e) => e.stopPropagation()}>
                               <div className="space-y-1.5">
                                 <div className="flex justify-between text-xs font-medium">
@@ -3543,6 +3640,11 @@ export default function App() {
                         <input type="file" className="hidden" accept="image/*" onChange={handleProfileImageUpload} />
                       </label>
                     </div>
+                    {isProfileLocked && isIdVerified && (
+                      <div className="absolute bottom-1 right-1 bg-emerald-500 text-white rounded-full p-2 border-2 border-white shadow-md flex items-center justify-center" title="Verified Profile & ID">
+                        <Check className="w-4 h-4" />
+                      </div>
+                    )}
                   </div>
                   <div className="text-center">
                     <h3 className="text-lg font-bold text-neutral-900">
@@ -4148,13 +4250,20 @@ export default function App() {
             </div>
 
             {/* Profit Balance Block */}
-            <div className="relative overflow-hidden w-full bg-neutral-900 text-white p-6 rounded-2xl shadow-md flex flex-col justify-between space-y-2 border border-amber-500/20">
+            <div className="relative overflow-hidden w-full bg-neutral-900 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-amber-500/20">
               <BlurryCoinsBg opacity={0.35} overlay="bg-gradient-to-r from-neutral-950/80 via-black/60 to-amber-950/50" />
-              <div className="relative z-10 space-y-2">
-                <span className="text-xs uppercase tracking-wider text-amber-300/80 font-medium flex block">Coin Top-Up Profit Balance</span>
-                <div className="text-3xl font-bold tracking-tight">R{totalProfit.toFixed(2).replace('.', ',')}</div>
+              <div className="relative z-10 space-y-1.5 flex-1">
+                <span className="text-xs uppercase tracking-wider text-amber-300/80 font-medium block">Coin Top-Up Profit Balance</span>
+                <div className="text-3xl font-bold tracking-tight">R{displayProfit.toFixed(2).replace('.', ',')}</div>
                 <span className="text-[11px] text-neutral-300 block">Total revenue generated from approved coin top-ups</span>
               </div>
+              <button
+                onClick={handleResetProfit}
+                className="relative z-10 self-start md:self-auto flex items-center space-x-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 text-amber-300 hover:text-amber-200 text-xs font-semibold rounded-xl border border-neutral-700 hover:border-neutral-600 transition-all select-none shadow-sm cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Reset Balance</span>
+              </button>
             </div>
 
             {/* Live Telemetry / Monitor Center */}
@@ -5272,19 +5381,19 @@ export default function App() {
 
       {/* Bottom Menu Bar with GIGs, Wallet, Chat, and Referral (Hidden on Chat Screen and Signup) */}
       {activeScreen !== 'chat' && activeScreen !== 'signup' && !isEnteringPin && (
-        <nav className="w-full border-t border-neutral-200 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/75 backdrop-blur-xl overflow-hidden shadow-[0_-4px_30px_rgba(0,0,0,0.03)]">
+        <nav className="w-full border-t border-neutral-200 py-1.5 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/75 backdrop-blur-xl overflow-hidden shadow-[0_-4px_30px_rgba(0,0,0,0.03)]">
           <div className="relative z-10 flex items-center justify-around w-full">
           <button
             onClick={() => {
               setActiveScreen('home');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors ${
+            className={`flex flex-col items-center space-y-0.5 transition-colors ${
               activeScreen === 'home' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[11px] sm:text-xs">GIGs</span>
+            <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-[10px] sm:text-[11px]">GIGs</span>
           </button>
 
           <button
@@ -5292,12 +5401,12 @@ export default function App() {
               setActiveScreen('wallet');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors ${
+            className={`flex flex-col items-center space-y-0.5 transition-colors ${
               activeScreen === 'wallet' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[11px] sm:text-xs">Wallet</span>
+            <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-[10px] sm:text-[11px]">Wallet</span>
           </button>
 
           <button
@@ -5305,12 +5414,12 @@ export default function App() {
               setActiveScreen('chat');
               setActiveChatContactId(null);
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors ${
+            className={`flex flex-col items-center space-y-0.5 transition-colors ${
               activeScreen === 'chat' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
-            <span className="text-[11px] sm:text-xs">Chat</span>
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+            <span className="text-[10px] sm:text-[11px]">Chat</span>
           </button>
 
           <button
@@ -5318,18 +5427,18 @@ export default function App() {
               setActiveScreen('referral');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-all duration-300 ${
+            className={`flex flex-col items-center space-y-0.5 transition-all duration-300 ${
               activeScreen === 'referral' ? 'text-neutral-950 font-bold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
-            <div className={`p-1.5 rounded-full transition-all duration-500 ${
+            <div className={`p-1 rounded-full transition-all duration-500 ${
               activeScreen === 'referral' 
                 ? 'bg-black text-white shadow-[0_0_15px_rgba(0,0,0,0.15)] ring-2 ring-black/25' 
                 : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
             }`}>
-              <Gift className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
+              <Gift className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
             </div>
-            <span className="text-[10px] sm:text-[11px] uppercase tracking-tight font-bold">Referral</span>
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-tight font-bold">Referral</span>
           </button>
 
           <button
@@ -5337,7 +5446,7 @@ export default function App() {
               setActiveScreen('profile');
               setWalletStep('overview');
             }}
-            className={`flex flex-col items-center space-y-1 transition-colors relative ${
+            className={`flex flex-col items-center space-y-0.5 transition-colors relative ${
               activeScreen === 'profile' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
@@ -5346,21 +5455,25 @@ export default function App() {
                 <img
                   src={profilePhotoURL}
                   alt="Profile"
-                  className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full object-cover border ${
+                  className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover border ${
                     activeScreen === 'profile' ? 'border-neutral-950 ring-1 ring-neutral-950/20' : 'border-neutral-300'
                   }`}
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <UserCircle className="w-5 h-5 sm:w-6 sm:h-6" />
+                <UserCircle className="w-4 h-4 sm:w-5 sm:h-5" />
               )}
-              {isProfileLocked && (
-                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm">
-                  <Lock className="w-2.5 h-2.5" />
+              {isProfileLocked && isIdVerified ? (
+                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm" title="Verified Profile & ID">
+                  <Check className="w-2 h-2" />
                 </div>
-              )}
+              ) : isProfileLocked ? (
+                <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm">
+                  <Lock className="w-2 h-2" />
+                </div>
+              ) : null}
             </div>
-            <span className="text-[11px] sm:text-xs">Profile</span>
+            <span className="text-[10px] sm:text-[11px]">Profile</span>
           </button>
           </div>
         </nav>
