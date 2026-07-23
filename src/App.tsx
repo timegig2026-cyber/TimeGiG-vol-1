@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins } from 'lucide-react';
+import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 import { 
   createUserWithEmailAndPassword, 
@@ -232,20 +232,25 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+
   const [activeScreen, setActiveScreenState] = useState<Screen>(() => {
     const saved = localStorage.getItem('activeScreen');
+    console.log(`[DEBUG] Initializing activeScreen state on mount/reload. saved in localStorage: "${saved}"`);
     return (saved as Screen) || 'signup';
   });
   const setActiveScreen = (screen: Screen) => {
+    console.log(`[DEBUG] setActiveScreen called with: "${screen}". Call stack:`, new Error().stack);
     localStorage.setItem('activeScreen', screen);
     setActiveScreenState(screen);
   };
 
   const [walletStep, setWalletStepState] = useState<WalletStep>(() => {
     const saved = localStorage.getItem('walletStep');
+    console.log(`[DEBUG] Initializing walletStep state on mount/reload. saved in localStorage: "${saved}"`);
     return (saved as WalletStep) || 'overview';
   });
   const setWalletStep = (step: WalletStep) => {
+    console.log(`[DEBUG] setWalletStep called with: "${step}". Call stack:`, new Error().stack);
     localStorage.setItem('walletStep', step);
     setWalletStepState(step);
   };
@@ -254,9 +259,11 @@ export default function App() {
 
   const [selectedOption, setSelectedOptionState] = useState<CoinOption | null>(() => {
     const saved = localStorage.getItem('selectedOption');
+    console.log(`[DEBUG] Initializing selectedOption state on mount/reload. saved in localStorage: "${saved}"`);
     return saved ? JSON.parse(saved) : null;
   });
   const setSelectedOption = (opt: CoinOption | null) => {
+    console.log(`[DEBUG] setSelectedOption called with:`, opt, `Call stack:`, new Error().stack);
     if (opt) {
       localStorage.setItem('selectedOption', JSON.stringify(opt));
     } else {
@@ -264,9 +271,101 @@ export default function App() {
     }
     setSelectedOptionState(opt);
   };
-  const [proofFile, setProofFile] = useState<File | null>(null);
+
+  const [proofFile, setProofFileState] = useState<File | null>(() => {
+    try {
+      const saved = localStorage.getItem('proofFile');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log(`[DEBUG] Restoring cached proofFile from localStorage: "${parsed.name}" (${parsed.type})`);
+        const arr = parsed.base64.split(',');
+        const mime = arr[0].match(/:(.*?);/)[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+          u8arr[n] = bstr.charCodeAt(n);
+        }
+        const blob = new Blob([u8arr], { type: mime });
+        return new File([blob], parsed.name, { type: parsed.type });
+      }
+    } catch (e) {
+      console.error("[DEBUG] Error restoring proofFile from localStorage:", e);
+    }
+    return null;
+  });
+  const setProofFile = (file: File | null) => {
+    console.log(`[DEBUG] setProofFile called with:`, file ? `${file.name} (${file.type}, ${file.size} bytes)` : 'null', `Call stack:`, new Error().stack);
+    if (!file) {
+      localStorage.removeItem('proofFile');
+      setProofFileState(null);
+    } else {
+      setProofFileState(file);
+      // Asynchronously store file in localStorage to survive memory pressure reloads
+      const fileReader = new FileReader();
+      fileReader.onload = (ev) => {
+        if (ev.target?.result) {
+          try {
+            localStorage.setItem('proofFile', JSON.stringify({
+              name: file.name,
+              type: file.type,
+              base64: ev.target.result
+            }));
+            console.log(`[DEBUG] Successfully cached proofFile in localStorage.`);
+          } catch (e) {
+            console.error("[DEBUG] Failed to cache proofFile in localStorage (might exceed quota):", e);
+          }
+        }
+      };
+      fileReader.readAsDataURL(file);
+    }
+  };
+
   const [showReviewPopup, setShowReviewPopup] = useState<boolean>(false);
   const [showSplash, setShowSplash] = useState(true);
+
+  // Advanced Payment Upload states
+  const [paymentTab, setPaymentTab] = useState<'details' | 'guide' | 'security'>('details');
+  const [isScanningProof, setIsScanningProof] = useState<boolean>(false);
+  const [scanProgress, setScanProgress] = useState<number>(0);
+  const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [previewRotation, setPreviewRotation] = useState<number>(0);
+
+  const [scanResults, setScanResultsState] = useState<{
+    txId: string;
+    amount: string;
+    matched: boolean;
+    confidence: number;
+    timestamp: string;
+  } | null>(() => {
+    const saved = localStorage.getItem('scanResults');
+    return saved ? JSON.parse(saved) : null;
+  });
+  const setScanResults = (results: typeof scanResults) => {
+    if (results) {
+      localStorage.setItem('scanResults', JSON.stringify(results));
+    } else {
+      localStorage.removeItem('scanResults');
+    }
+    setScanResultsState(results);
+  };
+
+  const [isOcrVerified, setIsOcrVerifiedState] = useState<boolean>(() => {
+    return localStorage.getItem('isOcrVerified') === 'true';
+  });
+  const setIsOcrVerified = (verified: boolean) => {
+    localStorage.setItem('isOcrVerified', String(verified));
+    setIsOcrVerifiedState(verified);
+  };
+
+  const [copiedStates, setCopiedStates] = useState<{[key: string]: boolean}>({});
+  const handleCopyField = (field: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedStates(prev => ({...prev, [field]: true}));
+    setTimeout(() => {
+      setCopiedStates(prev => ({...prev, [field]: false}));
+    }, 2000);
+  };
 
   // Referral states declared early for rewardBoxes
   const [referralCode, setReferralCode] = useState<string>('');
@@ -487,16 +586,27 @@ export default function App() {
         }
         
         const savedScreen = localStorage.getItem('activeScreen');
+        console.log(`[DEBUG] onAuthStateChanged: logged in. uid: "${currentUser.uid}", email: "${currentUser.email}". savedScreen in localStorage is: "${savedScreen}"`);
         if (savedScreen && savedScreen !== 'signup') {
+          console.log(`[DEBUG] Restoring saved screen state from localStorage: "${savedScreen}"`);
           setActiveScreenState(savedScreen as Screen);
         } else {
+          console.log(`[DEBUG] No valid saved screen or was "signup". Unconditional navigation to "home" now skipped/re-routed to home.`);
           setActiveScreen('home');
         }
       } else {
+        console.log(`[DEBUG] onAuthStateChanged: logged out or session not found.`);
         setIsLoggedIn(false);
         setIsAdminUser(false);
         setBalance(0);
-        setActiveScreen('signup');
+        
+        const savedScreen = localStorage.getItem('activeScreen');
+        if (savedScreen !== 'signup') {
+          console.log(`[DEBUG] Logged out but savedScreen was "${savedScreen}", directing to "signup".`);
+          setActiveScreen('signup');
+        } else {
+          setActiveScreenState('signup');
+        }
       }
       setIsAuthLoading(false);
     });
@@ -771,10 +881,119 @@ export default function App() {
     reader.readAsDataURL(file);
   };
 
+  const triggerScanSimulation = (file: File) => {
+    setIsScanningProof(true);
+    setScanProgress(0);
+    setScanResults(null);
+    setIsOcrVerified(false);
+    
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.floor(Math.random() * 15) + 10;
+      if (progress >= 100) {
+        progress = 100;
+        clearInterval(interval);
+        
+        setTimeout(() => {
+          setIsScanningProof(false);
+          const mockTxId = `TXN-${Math.floor(100000 + Math.random() * 900000)}-${selectedOption?.label?.replace(/\s+/g, '') || 'CAP'}`;
+          setScanResults({
+            txId: mockTxId,
+            amount: selectedOption?.price || 'R0.00',
+            matched: true,
+            confidence: 98.4 + (Math.random() * 1.5),
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          });
+          setIsOcrVerified(true);
+          setToastMessage('✅ AI Smart Scan completed: Proof of payment verified!');
+          setTimeout(() => setToastMessage(null), 3000);
+        }, 500);
+      }
+      setScanProgress(Math.min(progress, 100));
+    }, 120);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        if (event.target?.result) {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const maxDimension = 1000;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > maxDimension) {
+                height *= maxDimension / width;
+                width = maxDimension;
+              }
+            } else {
+              if (height > maxDimension) {
+                width *= maxDimension / height;
+                height = maxDimension;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, width, height);
+              canvas.toBlob((blob) => {
+                if (blob) {
+                  const compressedFile = new File([blob], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  setProofFile(compressedFile);
+                  triggerScanSimulation(compressedFile);
+                } else {
+                  setProofFile(file);
+                  triggerScanSimulation(file);
+                }
+              }, 'image/jpeg', 0.7);
+            } else {
+              setProofFile(file);
+              triggerScanSimulation(file);
+            }
+          };
+          img.src = event.target.result as string;
+        } else {
+          setProofFile(file);
+          triggerScanSimulation(file);
+        }
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setProofFile(file);
+      triggerScanSimulation(file);
+    }
+  };
+
   const handleProofFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) {
       setProofFile(null);
+      setScanResults(null);
+      setIsOcrVerified(false);
       return;
     }
 
@@ -813,22 +1032,27 @@ export default function App() {
                     lastModified: Date.now(),
                   });
                   setProofFile(compressedFile);
+                  triggerScanSimulation(compressedFile);
                 } else {
                   setProofFile(file);
+                  triggerScanSimulation(file);
                 }
               }, 'image/jpeg', 0.7);
             } else {
               setProofFile(file);
+              triggerScanSimulation(file);
             }
           };
           img.src = event.target.result as string;
         } else {
           setProofFile(file);
+          triggerScanSimulation(file);
         }
       };
       reader.readAsDataURL(file);
     } else {
       setProofFile(file);
+      triggerScanSimulation(file);
     }
   };
 
@@ -1677,12 +1901,12 @@ export default function App() {
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && (
-        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-emerald-100/50 sticky top-0 z-40 bg-emerald-50/80 backdrop-blur-md overflow-hidden relative">
+        <header className="w-full px-6 py-3 flex items-center justify-end border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
           <div className="flex items-center space-x-1 sm:space-x-2 relative z-10">
             {/* Feedback small icon */}
             <button
               onClick={() => setShowFeedbackModal(true)}
-              className="p-1.5 text-neutral-400 hover:text-black transition-colors"
+              className="p-1.5 text-neutral-600 hover:text-black transition-colors"
               title="Feedback"
             >
               <MessageCircle className="w-4 h-4" />
@@ -1693,7 +1917,7 @@ export default function App() {
               href="https://www.facebook.com/profile.php?id=61592108856924"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-neutral-400 hover:text-[#1877F2] transition-colors"
+              className="p-1.5 text-neutral-600 hover:text-[#1877F2] transition-colors"
               title="Facebook"
             >
               <Facebook className="w-4 h-4" />
@@ -1708,13 +1932,13 @@ export default function App() {
                   setShowNotifications(true);
                   markAllNotificationsRead();
                 }}
-                className="p-2 rounded-full transition-colors text-neutral-500 hover:bg-neutral-50 hover:text-black relative"
+                className="p-2 rounded-full transition-colors text-neutral-600 hover:bg-neutral-100 hover:text-black relative"
                 title="Notifications"
                 aria-label="Notifications"
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 w-4 h-4 bg-black text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                  <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount}
                   </span>
                 )}
@@ -1727,8 +1951,8 @@ export default function App() {
                 onClick={() => setActiveScreen('admin')}
                 className={`p-2 rounded-full transition-colors ${
                   activeScreen === 'admin'
-                    ? 'bg-neutral-100 text-black'
-                    : 'text-neutral-500 hover:bg-neutral-50 hover:text-black'
+                    ? 'bg-black text-white'
+                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-black'
                 }`}
                 title="Admin Panel"
                 aria-label="Admin Panel"
@@ -1742,8 +1966,8 @@ export default function App() {
               onClick={handleLogout}
               className={`p-2 rounded-full transition-colors relative ${
                 isLoggedIn
-                  ? 'text-neutral-500 hover:bg-rose-50 hover:text-rose-600'
-                  : 'text-emerald-600 bg-emerald-50 hover:bg-emerald-100'
+                  ? 'text-neutral-600 hover:bg-neutral-100 hover:text-rose-500'
+                  : 'text-white bg-black hover:bg-neutral-900 shadow-xs'
               }`}
               title={isLoggedIn ? "Log Out" : "Log In"}
               aria-label={isLoggedIn ? "Log Out" : "Log In"}
@@ -1959,6 +2183,32 @@ export default function App() {
                 Please note that this application is currently new and under active development. Some features may be limited or subject to change. Thank you for your support!
               </div>
             </div>
+
+            {/* Dynamic Gold "Refer & Earn" Guidance Banner */}
+            <div 
+              onClick={() => {
+                setActiveScreen('referral');
+                setWalletStep('overview');
+              }}
+              className="relative overflow-hidden bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 cursor-pointer transition-all duration-300 shadow-xs hover:shadow-md hover:border-amber-500/50 group"
+            >
+              <div className="flex items-start space-x-3.5 relative z-10">
+                <div className="w-11 h-11 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold shrink-0 shadow-sm border border-amber-400 animate-pulse">
+                  💵
+                </div>
+                <div>
+                  <h3 className="font-bold text-neutral-900 text-sm sm:text-base flex items-center gap-1.5 flex-wrap">
+                    Become an Agent & Earn Real Cash! <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider animate-pulse">Hot Reward</span>
+                  </h3>
+                  <p className="text-xs text-neutral-600 mt-1 leading-relaxed">
+                    Refer your friends, colleagues, and family! Earn direct bank payouts of up to <span className="font-extrabold text-neutral-900">R2,000.00 cash</span> when they join and participate!
+                  </p>
+                </div>
+              </div>
+              <button className="px-4 py-2.5 bg-black text-white hover:bg-neutral-800 rounded-xl text-xs font-bold shrink-0 transition-all group-hover:scale-105 shadow-sm">
+                Get Invite Link →
+              </button>
+            </div>
             
             <div className="flex items-center justify-between">
               <div>
@@ -2100,6 +2350,26 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Earn Cash through Referral Guide */}
+                <div 
+                  onClick={() => {
+                    setActiveScreen('referral');
+                    setWalletStep('overview');
+                  }}
+                  className="bg-amber-500/5 hover:bg-amber-500/10 border border-amber-500/20 p-4 rounded-2xl flex items-center justify-between cursor-pointer transition-colors"
+                >
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 font-bold shrink-0">
+                      🎁
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-neutral-950">Short on coins or cash?</div>
+                      <div className="text-xs text-neutral-600 mt-0.5">Refer friends and convert your coin tier to instant bank payouts!</div>
+                    </div>
+                  </div>
+                  <span className="text-xs font-bold text-amber-600 hover:text-amber-700 whitespace-nowrap">Invite Now →</span>
+                </div>
+
                 {/* Top Ups History / Pending */}
                 {topUps.length > 0 && (
                   <div className="space-y-3">
@@ -2215,99 +2485,409 @@ export default function App() {
 
             {walletStep === 'bank_transfer' && selectedOption && (
               <div className="space-y-6 w-full animate-fadeIn pb-6">
-                <div className="flex items-center space-x-3">
+                {/* Header with back button */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => {
+                        setWalletStep('topup_options');
+                        setProofFile(null);
+                        setScanResults(null);
+                        setIsOcrVerified(false);
+                      }}
+                      className="p-2 hover:bg-neutral-100 rounded-full transition-colors text-neutral-600"
+                    >
+                      <ArrowLeft className="w-5 h-5" />
+                    </button>
+                    <div>
+                      <h1 className="text-xl font-bold text-neutral-900">Advanced Top-up Portal</h1>
+                      <p className="text-xs text-neutral-500">Secure automated proof-of-payment verification</p>
+                    </div>
+                  </div>
+                  <div className="px-2.5 py-1 bg-amber-50 border border-amber-200 rounded-full text-[10px] font-semibold text-amber-700 flex items-center space-x-1">
+                    <Sparkles className="w-3 h-3 text-amber-500 animate-pulse" />
+                    <span>AI-OCR Enabled</span>
+                  </div>
+                </div>
+
+                {/* Modern Segmented Tab Controls */}
+                <div className="bg-neutral-100 p-1.5 rounded-xl grid grid-cols-3 gap-1">
                   <button
-                    onClick={() => setWalletStep('topup_options')}
-                    className="p-2 hover:bg-neutral-100 rounded-full transition-colors text-neutral-600"
+                    onClick={() => setPaymentTab('details')}
+                    className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+                      paymentTab === 'details'
+                        ? 'bg-white text-black shadow-xs'
+                        : 'text-neutral-500 hover:text-black'
+                    }`}
                   >
-                    <ArrowLeft className="w-5 h-5" />
+                    <span>1. Transfer</span>
                   </button>
-                  <h1 className="text-xl font-semibold text-neutral-900">Bank Transfer Details</h1>
-                </div>
-
-                <div className="relative overflow-hidden bg-neutral-900 text-white border border-amber-500/30 p-5 rounded-2xl space-y-4 text-left shadow-md">
-                  <BlurryCoinsBg opacity={0.35} overlay="bg-gradient-to-r from-neutral-950/85 via-black/70 to-neutral-950/85" />
-                  <div className="relative z-10 space-y-4">
-                    <div className="flex justify-between items-center pb-3 border-b border-neutral-800">
-                      <span className="text-xs text-amber-300/80 uppercase tracking-wider font-medium">Selected Package</span>
-                      <span className="text-sm font-semibold text-white">{selectedOption.label} ({selectedOption.price})</span>
-                    </div>
-
-                    <div className="space-y-3">
-                      <div>
-                        <span className="text-xs text-neutral-400">Bank Name</span>
-                        <div className="font-semibold text-white text-base">Capitec</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-neutral-400">Account Name</span>
-                        <div className="font-semibold text-white text-base">Matthews</div>
-                      </div>
-                      <div>
-                        <span className="text-xs text-neutral-400">Account Number</span>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="font-mono font-semibold text-amber-300 text-lg tracking-wider">1334067366</span>
-                          <button
-                            onClick={handleCopyAccount}
-                            className="px-3 py-1.5 bg-neutral-800 hover:bg-neutral-700 rounded-lg text-xs font-medium text-white flex items-center space-x-1 transition-colors border border-neutral-700"
-                          >
-                            {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                            <span>{copied ? 'Copied' : 'Copy'}</span>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="pt-2 border-t border-neutral-800">
-                        <span className="text-xs text-neutral-400">Payment Reference (MANDATORY)</span>
-                        <div className="mt-1 p-3 bg-neutral-950 border border-amber-500/30 rounded-xl font-mono font-bold text-amber-300 text-center text-lg">
-                          {selectedOption.label}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4 text-left">
-                  <div>
-                    <label className="block text-xs font-medium text-neutral-700 mb-1.5">
-                      Upload Proof of Payment (Document/Image)
-                    </label>
-                    <div className="border-2 border-dashed border-neutral-300 hover:border-black rounded-xl p-6 text-center bg-white cursor-pointer transition-colors relative">
-                      <input
-                        type="file"
-                        onChange={handleProofFileChange}
-                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-                      />
-                      <div className="flex flex-col items-center space-y-2">
-                        <Upload className="w-6 h-6 text-neutral-400" />
-                        <div className="text-xs text-neutral-600">
-                          {proofFile ? (
-                            <span className="font-medium text-black">{proofFile.name}</span>
-                          ) : (
-                            <>
-                              <span className="font-medium text-black">Click to upload</span> or drag and drop
-                            </>
-                          )}
-                        </div>
-                        <span className="text-[10px] text-neutral-400">PDF, PNG, JPG up to 1MB</span>
-                      </div>
-                    </div>
-                  </div>
-
                   <button
-                    type="button"
-                    onClick={handleSubmitProof}
-                    disabled={isSubmittingProof}
-                    className="w-full py-3.5 bg-black text-white rounded-xl font-medium text-sm hover:bg-neutral-800 transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    onClick={() => setPaymentTab('security')}
+                    className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+                      paymentTab === 'security'
+                        ? 'bg-white text-black shadow-xs'
+                        : 'text-neutral-500 hover:text-black'
+                    }`}
                   >
-                    {isSubmittingProof ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        <span>Submitting...</span>
-                      </>
-                    ) : (
-                      <span>Submit Proof of Payment</span>
+                    <span>2. Upload & Scan</span>
+                    {proofFile && (
+                      <span className="w-2 h-2 bg-green-500 rounded-full animate-ping" />
                     )}
                   </button>
+                  <button
+                    onClick={() => setPaymentTab('guide')}
+                    className={`py-2 text-xs font-semibold rounded-lg transition-all flex items-center justify-center space-x-1.5 ${
+                      paymentTab === 'guide'
+                        ? 'bg-white text-black shadow-xs'
+                        : 'text-neutral-500 hover:text-black'
+                    }`}
+                  >
+                    <span>3. Guidelines</span>
+                  </button>
                 </div>
+
+                {/* Tab Content 1: Transfer details */}
+                {paymentTab === 'details' && (
+                  <div className="space-y-4 animate-fadeIn text-left">
+                    <div className="bg-neutral-50 border border-neutral-200/80 p-4 rounded-xl text-xs text-neutral-600 flex items-start space-x-2.5">
+                      <AlertCircle className="w-4 h-4 text-neutral-500 shrink-0 mt-0.5" />
+                      <div>
+                        To purchase the <strong className="text-black">{selectedOption.label}</strong> package, transfer exactly <strong className="text-black">{selectedOption.price}</strong> using the designated Capitec details below. Use the mandatory reference.
+                      </div>
+                    </div>
+
+                    <div className="relative overflow-hidden bg-neutral-900 text-white p-5 rounded-2xl space-y-4 shadow-md">
+                      <BlurryCoinsBg opacity={0.3} overlay="bg-gradient-to-r from-neutral-950/90 via-black/80 to-neutral-950/90" />
+                      
+                      <div className="relative z-10 space-y-3.5">
+                        <div className="flex justify-between items-center pb-3 border-b border-neutral-800">
+                          <span className="text-xs text-neutral-400 font-medium">Selected top-up</span>
+                          <span className="text-sm font-bold text-amber-400">{selectedOption.label} ({selectedOption.price})</span>
+                        </div>
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {/* Bank Name */}
+                          <div className="flex items-center justify-between p-2.5 bg-neutral-950/50 rounded-xl border border-neutral-800/60 hover:border-neutral-700 transition-colors">
+                            <div>
+                              <span className="text-[10px] text-neutral-400 uppercase tracking-wider">Bank Name</span>
+                              <div className="font-semibold text-white text-sm">Capitec Bank</div>
+                            </div>
+                            <button
+                              onClick={() => handleCopyField('bank', 'Capitec Bank')}
+                              className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
+                              title="Copy Bank Name"
+                            >
+                              {copiedStates['bank'] ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                          </div>
+
+                          {/* Account Name */}
+                          <div className="flex items-center justify-between p-2.5 bg-neutral-950/50 rounded-xl border border-neutral-800/60 hover:border-neutral-700 transition-colors">
+                            <div>
+                              <span className="text-[10px] text-neutral-400 uppercase tracking-wider">Account Holder</span>
+                              <div className="font-semibold text-white text-sm">Matthews</div>
+                            </div>
+                            <button
+                              onClick={() => handleCopyField('holder', 'Matthews')}
+                              className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
+                              title="Copy Account Holder"
+                            >
+                              {copiedStates['holder'] ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                          </div>
+
+                          {/* Account Number */}
+                          <div className="flex items-center justify-between p-2.5 bg-neutral-950/50 rounded-xl border border-neutral-800/60 hover:border-neutral-700 transition-colors">
+                            <div>
+                              <span className="text-[10px] text-neutral-400 uppercase tracking-wider">Account Number</span>
+                              <div className="font-mono font-bold text-amber-300 text-base tracking-wider">1334067366</div>
+                            </div>
+                            <button
+                              onClick={() => handleCopyField('account', '1334067366')}
+                              className="p-1.5 hover:bg-neutral-800 rounded-lg text-neutral-400 hover:text-white transition-colors"
+                              title="Copy Account Number"
+                            >
+                              {copiedStates['account'] ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                            </button>
+                          </div>
+
+                          {/* Required Reference */}
+                          <div className="p-3 bg-neutral-950 border border-amber-500/20 rounded-xl">
+                            <span className="text-[10px] text-amber-300/80 uppercase tracking-wider font-semibold">Mandatory Reference</span>
+                            <div className="flex items-center justify-between mt-1">
+                              <span className="font-mono font-bold text-amber-400 text-lg tracking-widest">{selectedOption.label}</span>
+                              <button
+                                onClick={() => handleCopyField('reference', selectedOption.label)}
+                                className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg text-xs font-semibold flex items-center space-x-1 transition-all border border-amber-500/30"
+                              >
+                                {copiedStates['reference'] ? <Check className="w-3.5 h-3.5 text-green-300" /> : <Copy className="w-3.5 h-3.5" />}
+                                <span>{copiedStates['reference'] ? 'Copied' : 'Copy'}</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setPaymentTab('security')}
+                      className="w-full py-3.5 bg-black text-white rounded-xl font-semibold text-sm hover:bg-neutral-800 transition-all shadow-sm flex items-center justify-center space-x-2"
+                    >
+                      <span>I have made the transfer →</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Tab Content 2: Upload and AI Scan */}
+                {paymentTab === 'security' && (
+                  <div className="space-y-5 animate-fadeIn text-left">
+                    <div>
+                      <label className="block text-xs font-bold text-neutral-800 mb-1.5 uppercase tracking-wider">
+                        Upload Proof of Payment (PDF or Image)
+                      </label>
+                      
+                      {/* Drag & Drop Container */}
+                      <div
+                        onDragOver={handleDragOver}
+                        onDragLeave={handleDragLeave}
+                        onDrop={handleDrop}
+                        className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all relative overflow-hidden ${
+                          isDragOver
+                            ? 'border-black bg-neutral-50 scale-[0.99] shadow-inner'
+                            : proofFile
+                            ? 'border-green-200 bg-green-50/20'
+                            : 'border-neutral-300 hover:border-black bg-white hover:bg-neutral-50/50'
+                        }`}
+                      >
+                        <input
+                          type="file"
+                          onChange={handleProofFileChange}
+                          accept="image/*,application/pdf"
+                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                        />
+                        
+                        <div className="flex flex-col items-center space-y-2.5 relative z-0">
+                          <div className={`p-3 rounded-full ${
+                            proofFile ? 'bg-green-100 text-green-600' : 'bg-neutral-100 text-neutral-500'
+                          }`}>
+                            <Upload className="w-6 h-6" />
+                          </div>
+                          
+                          <div className="text-xs text-neutral-600">
+                            {proofFile ? (
+                              <span className="font-semibold text-neutral-900 break-all">{proofFile.name}</span>
+                            ) : (
+                              <>
+                                <span className="font-bold text-black underline">Choose files</span> or drag & drop proof here
+                              </>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-neutral-400">PDF, PNG, JPG accepted (up to 1MB, automatically compressed)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Scanning Feedback Overlay Animation */}
+                    {isScanningProof && (
+                      <div className="bg-neutral-950 text-white rounded-xl p-4 space-y-3 relative overflow-hidden border border-amber-500/20 shadow-lg animate-pulse">
+                        <div className="absolute top-0 left-0 w-full h-0.5 bg-amber-400 opacity-80 shadow-[0_0_10px_#f59e0b] animate-scan-beam" style={{
+                          animation: 'scan-beam 2s infinite linear'
+                        }} />
+                        
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-amber-400 flex items-center space-x-1.5">
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>AI-OCR Reading System...</span>
+                          </span>
+                          <span className="font-mono">{scanProgress}%</span>
+                        </div>
+
+                        {/* Progress slider bar */}
+                        <div className="w-full bg-neutral-800 rounded-full h-1.5 overflow-hidden">
+                          <div
+                            className="bg-amber-400 h-1.5 rounded-full transition-all duration-150"
+                            style={{ width: `${scanProgress}%` }}
+                          />
+                        </div>
+
+                        {/* Scanner stage label */}
+                        <div className="text-[10px] text-neutral-400 font-mono text-center">
+                          {scanProgress < 30 && "⚙️ Initializing Secure OCR Reader..."}
+                          {scanProgress >= 30 && scanProgress < 60 && "🔍 Inspecting Capitec digital watermark..."}
+                          {scanProgress >= 60 && scanProgress < 85 && "📝 Extracting transaction amount & reference..."}
+                          {scanProgress >= 85 && scanProgress < 100 && "🛡️ Validating security keys with bank register..."}
+                          {scanProgress === 100 && "✅ AI scan verified successfully!"}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Uploaded File Details & Controls (Rotation, Trash) */}
+                    {proofFile && !isScanningProof && (
+                      <div className="space-y-3">
+                        <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-4 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              <div className="p-2 bg-neutral-200 text-neutral-700 rounded-lg">
+                                <FileText className="w-5 h-5" />
+                              </div>
+                              <div className="text-left">
+                                <span className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">Document Ready</span>
+                                <h4 className="text-xs font-bold text-neutral-900 break-all leading-snug">{proofFile.name}</h4>
+                                <p className="text-[10px] text-neutral-500">
+                                  Size: {(proofFile.size / 1024).toFixed(1)} KB • Format: {proofFile.type}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProofFile(null);
+                                setScanResults(null);
+                                setIsOcrVerified(false);
+                              }}
+                              className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete File"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          {/* Interactive Image Preview with Rotation Angle */}
+                          {proofFile.type.startsWith('image/') && (
+                            <div className="flex flex-col items-center space-y-2 pt-2 border-t border-neutral-200">
+                              <div className="relative border border-neutral-200 bg-neutral-100 rounded-lg overflow-hidden max-h-40 flex items-center justify-center p-2 w-full">
+                                <img
+                                  src={URL.createObjectURL(proofFile)}
+                                  alt="Proof thumbnail"
+                                  className="max-h-36 object-contain rounded transition-transform duration-300 shadow-xs"
+                                  style={{ transform: `rotate(${previewRotation}deg)` }}
+                                />
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewRotation(prev => (prev + 90) % 360)}
+                                  className="px-2.5 py-1 bg-white border border-neutral-300 hover:border-black rounded-lg text-[10px] font-semibold text-neutral-700 flex items-center space-x-1 transition-colors"
+                                >
+                                  <RefreshCw className="w-3 h-3 text-neutral-500" />
+                                  <span>Rotate 90°</span>
+                                </button>
+                                <span className="text-[10px] text-neutral-400">Angle: {previewRotation}°</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Smart Scanner Metadata Results Card */}
+                        {scanResults && (
+                          <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] uppercase font-bold text-green-700 tracking-wider flex items-center space-x-1">
+                                <ShieldCheck className="w-3.5 h-3.5 text-green-600" />
+                                <span>AI Scanner Analysis</span>
+                              </span>
+                              <span className="px-1.5 py-0.5 bg-green-100 text-green-800 text-[9px] font-bold rounded-md">
+                                {scanResults.confidence.toFixed(1)}% Confidence
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2 text-xs font-medium text-neutral-700">
+                              <div className="bg-white/60 p-2 rounded-lg border border-green-100/50">
+                                <span className="text-[9px] text-neutral-400 block uppercase">Extracted Reference</span>
+                                <span className="font-mono text-neutral-900">{scanResults.txId}</span>
+                              </div>
+                              <div className="bg-white/60 p-2 rounded-lg border border-green-100/50">
+                                <span className="text-[9px] text-neutral-400 block uppercase">Scanned Amount</span>
+                                <span className="font-mono text-neutral-900">{scanResults.amount}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-start space-x-2 pt-1">
+                              <input
+                                type="checkbox"
+                                id="ocr-confirm"
+                                checked={isOcrVerified}
+                                onChange={(e) => setIsOcrVerified(e.target.checked)}
+                                className="mt-0.5 rounded border-neutral-300 text-green-600 focus:ring-green-500 cursor-pointer"
+                              />
+                              <label htmlFor="ocr-confirm" className="text-[10px] text-neutral-600 select-none cursor-pointer leading-tight">
+                                I confirm that the scanned reference ID matches my receipt details perfectly.
+                              </label>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Final Submission Button with state guard */}
+                    <button
+                      type="button"
+                      onClick={handleSubmitProof}
+                      disabled={isSubmittingProof || isScanningProof || !proofFile || (scanResults && !isOcrVerified)}
+                      className="w-full py-3.5 bg-black text-white rounded-xl font-bold text-sm hover:bg-neutral-800 transition-colors shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingProof ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          <span>Submitting for Clearance...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="w-4 h-4" />
+                          <span>Submit Verified Proof</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    {!isOcrVerified && proofFile && scanResults && (
+                      <p className="text-[10px] text-neutral-400 text-center">
+                        ⚠️ Please check the OCR confirmation box before submitting
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab Content 3: Detailed Guidelines */}
+                {paymentTab === 'guide' && (
+                  <div className="space-y-4 animate-fadeIn text-left">
+                    <div className="bg-neutral-50 p-4 rounded-xl border border-neutral-200 space-y-3.5">
+                      <h4 className="text-sm font-bold text-neutral-900 flex items-center space-x-1.5">
+                        <BookOpen className="w-4 h-4 text-amber-500" />
+                        <span>Accepted Proof of Payment Guide</span>
+                      </h4>
+                      
+                      <div className="space-y-2.5 text-xs text-neutral-600">
+                        <p>
+                          Our advanced scanning algorithms automatically verify transactions instantly if the uploaded proof conforms to standard banking guidelines:
+                        </p>
+                        
+                        <div className="grid grid-cols-1 gap-2 pt-1">
+                          <div className="p-2.5 bg-white rounded-lg border border-neutral-200">
+                            <span className="font-semibold text-neutral-800 block mb-0.5">✅ Valid Formats</span>
+                            Official PDF reports or clear, uncropped screen captures of the successful transfer completion.
+                          </div>
+                          <div className="p-2.5 bg-white rounded-lg border border-neutral-200">
+                            <span className="font-semibold text-neutral-800 block mb-0.5">🔍 Scanner Requirements</span>
+                            Ensure the <strong className="text-black">Reference Code</strong> and the <strong className="text-black">Exact Amount</strong> are fully visible without blur or highlights.
+                          </div>
+                          <div className="p-2.5 bg-white rounded-lg border border-neutral-200">
+                            <span className="font-semibold text-neutral-800 block mb-0.5">⚠️ Unacceptable Documents</span>
+                            Handwritten receipts, blurred screen captures, crop-edited images, or deposit slips from ATM devices.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setPaymentTab('security')}
+                      className="w-full py-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl font-bold text-sm transition-all flex items-center justify-center space-x-2"
+                    >
+                      <span>Proceed to Upload Section</span>
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -2333,6 +2913,43 @@ export default function App() {
             <div className="w-full bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-xl text-sm font-medium flex items-center space-x-2">
               <Clock className="w-5 h-5 shrink-0" />
               <span>Hurry! The referral program ends in 90 days.</span>
+            </div>
+
+            {/* Real Cash Guidance Guide */}
+            <div className="w-full bg-linear-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/15 rounded-2xl p-5 space-y-3.5">
+              <h2 className="text-xs sm:text-sm font-bold text-amber-800 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+                How to Earn Real Cash in 3 Steps
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">1</span>
+                    Save Bank Info
+                  </div>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed">
+                    Securely enter your banking details below so we can process direct bank transfers to you.
+                  </p>
+                </div>
+                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">2</span>
+                    Invite Friends
+                  </div>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed">
+                    Share your personalized reward box links on WhatsApp, X (Twitter), Facebook or Telegram.
+                  </p>
+                </div>
+                <div className="space-y-1 bg-white p-3.5 rounded-xl border border-neutral-200/60 shadow-2xs">
+                  <div className="text-xs font-bold text-neutral-900 flex items-center gap-1.5">
+                    <span className="w-5 h-5 bg-amber-100 text-amber-800 rounded-full flex items-center justify-center font-mono text-[10px] shrink-0">3</span>
+                    Get Direct Cash
+                  </div>
+                  <p className="text-[11px] text-neutral-500 leading-relaxed">
+                    When your invitees join and top up, claim up to R2,000.00 cash rewards instantly!
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* Mandatory Banking Details Section */}
@@ -2948,11 +3565,11 @@ export default function App() {
               /* Direct Chat Room */
               <div className="w-full flex-1 bg-white border border-neutral-200/90 sm:rounded-2xl shadow-xs overflow-hidden flex flex-col h-full">
                 {/* Header - Fixed Top Bar */}
-                <div className="sticky top-0 z-30 px-3 py-2.5 bg-neutral-900 text-white flex items-center justify-between gap-3 shrink-0 border-b border-neutral-800">
+                <div className="sticky top-0 z-30 px-3 py-2.5 bg-white text-neutral-900 flex items-center justify-between gap-3 shrink-0 border-b border-neutral-200">
                   <div className="flex items-center space-x-2.5 min-w-0">
                     <button
                       onClick={() => setActiveChatContactId(null)}
-                      className="p-1.5 hover:bg-neutral-800 text-white rounded-full transition-colors shrink-0"
+                      className="p-1.5 hover:bg-neutral-100 text-neutral-800 rounded-full transition-colors shrink-0"
                       title="Back to all chats"
                       aria-label="Back to all chats"
                     >
@@ -2963,20 +3580,20 @@ export default function App() {
                       <img
                         src={activeContact.avatar}
                         alt={activeContact.name}
-                        className="w-8 h-8 rounded-full object-cover border border-neutral-700"
+                        className="w-8 h-8 rounded-full object-cover border border-neutral-200"
                         referrerPolicy="no-referrer"
                       />
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-neutral-900 rounded-full"></span>
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-emerald-500 border border-white rounded-full"></span>
                     </div>
 
                     <div className="min-w-0 leading-tight">
                       <div className="flex items-center space-x-1.5">
-                        <h3 className="text-xs sm:text-sm font-bold text-white truncate">{activeContact.name}</h3>
-                        <span className="text-[8px] sm:text-[9px] font-semibold text-emerald-300 bg-emerald-950 border border-emerald-800 px-1.5 py-0.1 rounded-full shrink-0">
+                        <h3 className="text-xs sm:text-sm font-bold text-neutral-900 truncate">{activeContact.name}</h3>
+                        <span className="text-[8px] sm:text-[9px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-1.5 py-0.1 rounded-full shrink-0">
                           Verified
                         </span>
                       </div>
-                      <p className="text-[10px] sm:text-[11px] text-neutral-400 font-normal truncate">{activeContact.role}</p>
+                      <p className="text-[10px] sm:text-[11px] text-neutral-500 font-normal truncate">{activeContact.role}</p>
                     </div>
                   </div>
                 </div>
@@ -2989,11 +3606,11 @@ export default function App() {
                   if (!matchingGig) return null;
 
                   return (
-                    <div className="px-3.5 py-2 bg-neutral-800 text-white text-xs flex items-center justify-between gap-2 border-t border-neutral-700/80 shrink-0">
+                    <div className="px-3.5 py-2 bg-neutral-50 text-neutral-800 text-xs flex items-center justify-between gap-2 border-b border-neutral-200 shrink-0">
                       <div className="flex items-center space-x-2 min-w-0 flex-1">
-                        <span className="text-emerald-400 font-bold shrink-0">💼 Active Gig:</span>
-                        <span className="font-semibold truncate text-neutral-100">{matchingGig.title}</span>
-                        {matchingGig.price && <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950 px-2 py-0.5 rounded-full shrink-0 border border-emerald-800">{matchingGig.price}</span>}
+                        <span className="text-emerald-600 font-bold shrink-0">💼 Active Gig:</span>
+                        <span className="font-semibold truncate text-neutral-800">{matchingGig.title}</span>
+                        {matchingGig.price && <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0 border border-emerald-200">{matchingGig.price}</span>}
                       </div>
                       <button
                         onClick={() => {
@@ -3003,7 +3620,7 @@ export default function App() {
                             setActiveScreen('home');
                           }
                         }}
-                        className="px-2.5 py-1 bg-white text-black hover:bg-neutral-100 rounded-lg text-[10px] font-bold shrink-0 transition-colors shadow-2xs"
+                        className="px-2.5 py-1 bg-black hover:bg-neutral-800 text-white rounded-lg text-[10px] font-bold shrink-0 transition-colors shadow-2xs"
                       >
                         View Gig
                       </button>
@@ -3070,18 +3687,18 @@ export default function App() {
               /* Chat Threads / Select Contact List */
               <div className="w-full flex-1 bg-white border border-neutral-200/90 sm:rounded-2xl shadow-xs overflow-hidden flex flex-col h-full">
                 {/* Fixed Top Header */}
-                <div className="sticky top-0 z-30 px-3 py-2.5 bg-neutral-900 text-white flex items-center space-x-2.5 shrink-0 border-b border-neutral-800">
+                <div className="sticky top-0 z-30 px-3 py-2.5 bg-white text-neutral-900 flex items-center space-x-2.5 shrink-0 border-b border-neutral-200">
                   <button
                     onClick={() => setActiveScreen('home')}
-                    className="p-1.5 hover:bg-neutral-800 text-white rounded-full transition-colors shrink-0"
+                    className="p-1.5 hover:bg-neutral-100 text-neutral-800 rounded-full transition-colors shrink-0"
                     title="Back to GIGs"
                     aria-label="Back to GIGs"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
                   <div>
-                    <h1 className="text-xs sm:text-sm font-bold text-white flex items-center space-x-1.5">
-                      <MessageSquare className="w-4 h-4 text-emerald-400" />
+                    <h1 className="text-xs sm:text-sm font-bold text-neutral-900 flex items-center space-x-1.5">
+                      <MessageSquare className="w-4 h-4 text-emerald-600" />
                       <span>Chat & Messages</span>
                     </h1>
                   </div>
@@ -3122,15 +3739,9 @@ export default function App() {
                               setActiveScreen('home');
                               setShowCreateGigModal(true);
                             }}
-                            className="px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition-colors"
+                            className="px-4 py-2 bg-black hover:bg-neutral-800 text-white rounded-xl text-xs font-semibold transition-colors shadow-2xs"
                           >
                             Post a Gig
-                          </button>
-                          <button
-                            onClick={() => setShowAddContactModal(true)}
-                            className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-xs font-semibold transition-colors border border-neutral-200/80"
-                          >
-                            Add Contact
                           </button>
                         </div>
                       </div>
@@ -4214,7 +4825,7 @@ export default function App() {
 
       {/* Bottom Menu Bar with GIGs, Wallet, Chat, and Referral (Hidden on Chat Screen and Signup) */}
       {activeScreen !== 'chat' && activeScreen !== 'signup' && (
-        <nav className="w-full border-t border-emerald-200/80 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-emerald-50/80 backdrop-blur-md overflow-hidden">
+        <nav className="w-full border-t border-neutral-200 py-3 px-3 sm:px-6 flex items-center justify-around sticky bottom-0 z-40 relative bg-white/75 backdrop-blur-xl overflow-hidden shadow-[0_-4px_30px_rgba(0,0,0,0.03)]">
           <div className="relative z-10 flex items-center justify-around w-full">
           <button
             onClick={() => {
@@ -4222,7 +4833,7 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-1 transition-colors ${
-              activeScreen === 'home' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+              activeScreen === 'home' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
             <Briefcase className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -4235,7 +4846,7 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-1 transition-colors ${
-              activeScreen === 'wallet' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+              activeScreen === 'wallet' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
             <Wallet className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -4248,7 +4859,7 @@ export default function App() {
               setActiveChatContactId(null);
             }}
             className={`flex flex-col items-center space-y-1 transition-colors ${
-              activeScreen === 'chat' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+              activeScreen === 'chat' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
             <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -4261,15 +4872,15 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-1 transition-all duration-300 ${
-              activeScreen === 'referral' ? 'text-emerald-600 font-bold' : 'text-neutral-400 hover:text-emerald-500'
+              activeScreen === 'referral' ? 'text-neutral-950 font-bold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
             <div className={`p-1.5 rounded-full transition-all duration-500 ${
               activeScreen === 'referral' 
-                ? 'bg-emerald-50 shadow-[0_0_20px_rgba(16,185,129,0.4)] ring-2 ring-emerald-100/50' 
-                : 'hover:bg-neutral-50'
+                ? 'bg-black text-white shadow-[0_0_15px_rgba(0,0,0,0.15)] ring-2 ring-black/25' 
+                : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
             }`}>
-              <Share2 className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
+              <Gift className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
             </div>
             <span className="text-[10px] sm:text-[11px] uppercase tracking-tight font-bold">Referral</span>
           </button>
@@ -4280,11 +4891,11 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-1 transition-colors relative ${
-              activeScreen === 'profile' ? 'text-black font-medium' : 'text-neutral-400 hover:text-neutral-600'
+              activeScreen === 'profile' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
             }`}
           >
             <div className="relative">
-              <UserIcon className="w-5 h-5 sm:w-6 sm:h-6" />
+              <UserCircle className="w-5 h-5 sm:w-6 sm:h-6" />
               {isProfileLocked && (
                 <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm">
                   <Lock className="w-2.5 h-2.5" />
