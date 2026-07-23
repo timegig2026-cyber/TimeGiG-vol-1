@@ -92,6 +92,8 @@ interface CoinOption {
 
 interface TopUpRecord {
   id: string;
+  userId?: string;
+  userEmail?: string;
   option: CoinOption;
   date: string;
   fileName: string;
@@ -637,6 +639,25 @@ export default function App() {
     return () => unsubscribe();
   }, [isAdminUser]);
 
+  // Sync Users for Admin Panel mapping
+  useEffect(() => {
+    if (!isAdminUser) {
+      setUsersMap({});
+      return;
+    }
+    const q = query(collection(db, 'users'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const map: Record<string, any> = {};
+      snapshot.forEach(doc => {
+        map[doc.id] = doc.data();
+      });
+      setUsersMap(map);
+    }, (error) => {
+      console.error("Users map sync error:", error);
+    });
+    return () => unsubscribe();
+  }, [isAdminUser]);
+
   // Heartbeat ping effect for all users/guests to track live online status and visits
   useEffect(() => {
     const updateHeartbeat = async () => {
@@ -760,6 +781,7 @@ export default function App() {
   
   // Top-ups and Notifications state
   const [topUps, setTopUps] = useState<TopUpRecord[]>([]);
+  const [usersMap, setUsersMap] = useState<Record<string, any>>({});
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [showNotifications, setShowNotifications] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -4208,22 +4230,52 @@ export default function App() {
                 </div>
               ) : (
                 <div className="space-y-3 w-full">
-                  {topUps.map((item) => (
-                    <div key={item.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
-                      <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
-                      <div className="relative z-10 flex flex-col space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-semibold text-neutral-900 text-sm">Package: {item.option.label} ({item.option.price})</div>
-                            <div className="text-xs text-neutral-500">Submitted at {item.date}</div>
+                  {topUps.map((item) => {
+                    const userProfile = item.userId ? usersMap[item.userId] : null;
+                    const userEmail = userProfile?.email || item.userEmail || 'Anonymous';
+                    const photoURL = userProfile?.photoURL;
+                    const userFullName = userProfile ? `${userProfile.firstName || ''} ${userProfile.surname || ''}`.trim() : null;
+
+                    return (
+                      <div key={item.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
+                        <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
+                        <div className="relative z-10 flex flex-col space-y-3">
+                          {/* User Profile Row */}
+                          <div className="flex items-center space-x-3 pb-3 border-b border-neutral-100">
+                            {photoURL ? (
+                              <img 
+                                src={photoURL} 
+                                alt="User Profile" 
+                                referrerPolicy="no-referrer"
+                                className="w-10 h-10 rounded-full object-cover border border-neutral-200 shadow-xs shrink-0" 
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center border border-neutral-200 shadow-xs shrink-0">
+                                <UserIcon className="w-5 h-5 text-neutral-400" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-bold text-neutral-800 truncate">
+                                {userFullName || 'Anonymous User'}
+                              </div>
+                              <div className="text-[11px] text-neutral-500 truncate select-all font-mono">
+                                {userEmail}
+                              </div>
+                            </div>
                           </div>
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${
-                            item.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            item.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {item.status}
-                          </span>
-                        </div>
+
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <div className="font-semibold text-neutral-900 text-sm">Package: {item.option.label} ({item.option.price})</div>
+                              <div className="text-xs text-neutral-500">Submitted at {item.date}</div>
+                            </div>
+                            <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${
+                              item.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              item.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
 
                         <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
                           <div className="flex items-center space-x-2 text-xs text-neutral-600 truncate max-w-[200px]">
@@ -4262,7 +4314,8 @@ export default function App() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                  );
+                })}
                 </div>
               )}
             </div>
@@ -4508,74 +4561,102 @@ export default function App() {
       )}
 
       {/* Full Screen Document Viewer Modal for Admin */}
-      {viewingDocument && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col z-50 p-6 animate-fadeIn">
-          <div className="flex items-center justify-between text-white pb-4 border-b border-neutral-800">
-            <div>
-              <h3 className="font-semibold text-lg">{viewingDocument.fileName}</h3>
-              <p className="text-xs text-neutral-400">Package: {viewingDocument.option.label} ({viewingDocument.option.price})</p>
-            </div>
-            <button
-              onClick={() => setViewingDocument(null)}
-              className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-full transition-colors"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+      {viewingDocument && (() => {
+        const docUserProfile = viewingDocument.userId ? usersMap[viewingDocument.userId] : null;
+        const docUserEmail = docUserProfile?.email || viewingDocument.userEmail || 'Anonymous';
+        const docPhotoURL = docUserProfile?.photoURL;
+        const docUserFullName = docUserProfile ? `${docUserProfile.firstName || ''} ${docUserProfile.surname || ''}`.trim() : null;
 
-          <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
-            {viewingDocument.fileUrl && viewingDocument.fileName.match(/\.(png|jpg|jpeg|webp)$/i) ? (
-              <img
-                src={viewingDocument.fileUrl}
-                alt="POP"
-                className="max-h-[80vh] max-w-full object-contain rounded-xl border border-neutral-700 shadow-2xl"
-              />
-            ) : (
-              <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-4 max-w-md w-full">
-                <FileText className="w-16 h-16 text-neutral-500 mx-auto" />
-                <div>
-                  <h4 className="text-white font-medium text-base">{viewingDocument.fileName}</h4>
-                  <p className="text-xs text-neutral-400 mt-1">Document uploaded for payment reference: <strong className="text-white">{viewingDocument.option.label}</strong></p>
-                </div>
-                <div className="pt-2 text-xs text-neutral-500">
-                  Simulated document preview container.
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex flex-col z-50 p-6 animate-fadeIn">
+            <div className="flex items-center justify-between text-white pb-4 border-b border-neutral-800">
+              <div className="flex items-center space-x-3">
+                {docPhotoURL ? (
+                  <img 
+                    src={docPhotoURL} 
+                    alt="User Profile" 
+                    referrerPolicy="no-referrer"
+                    className="w-10 h-10 rounded-full object-cover border border-neutral-700 shadow-sm shrink-0" 
+                  />
+                ) : (
+                  <div className="w-10 h-10 rounded-full bg-neutral-800 flex items-center justify-center border border-neutral-700 shadow-sm shrink-0">
+                    <UserIcon className="w-5 h-5 text-neutral-400" />
+                  </div>
+                )}
+                <div className="text-left">
+                  <h3 className="font-semibold text-base leading-tight">
+                    {docUserFullName || 'Anonymous User'}
+                  </h3>
+                  <p className="text-xs text-neutral-400 mt-0.5 select-all font-mono">
+                    {docUserEmail}
+                  </p>
+                  <p className="text-[10px] text-amber-400 mt-0.5 font-medium">
+                    File: {viewingDocument.fileName} | Package: {viewingDocument.option.label} ({viewingDocument.option.price})
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+              <button
+                onClick={() => setViewingDocument(null)}
+                className="p-2 bg-neutral-800 hover:bg-neutral-700 text-white rounded-full transition-colors shrink-0"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
 
-          <div className="pt-4 border-t border-neutral-800 flex justify-end space-x-3">
-            {viewingDocument.status === 'pending' && (
-              <>
-                <button
-                  onClick={() => {
-                    handleRejectTopUp(viewingDocument.id);
-                    setViewingDocument(null);
-                  }}
-                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
-                >
-                  Reject POP
-                </button>
-                <button
-                  onClick={() => {
-                    handleApproveTopUp(viewingDocument.id);
-                    setViewingDocument(null);
-                  }}
-                  className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
-                >
-                  Approve POP
-                </button>
-              </>
-            )}
-            <button
-              onClick={() => setViewingDocument(null)}
-              className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors"
-            >
-              Close Viewer
-            </button>
+            <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
+              {viewingDocument.fileUrl && viewingDocument.fileName.match(/\.(png|jpg|jpeg|webp)$/i) ? (
+                <img
+                  src={viewingDocument.fileUrl}
+                  alt="POP"
+                  className="max-h-[80vh] max-w-full object-contain rounded-xl border border-neutral-700 shadow-2xl"
+                />
+              ) : (
+                <div className="bg-neutral-900 border border-neutral-800 rounded-2xl p-12 text-center space-y-4 max-w-md w-full">
+                  <FileText className="w-16 h-16 text-neutral-500 mx-auto" />
+                  <div>
+                    <h4 className="text-white font-medium text-base">{viewingDocument.fileName}</h4>
+                    <p className="text-xs text-neutral-400 mt-1">Document uploaded for payment reference: <strong className="text-white">{viewingDocument.option.label}</strong></p>
+                  </div>
+                  <div className="pt-2 text-xs text-neutral-500">
+                    Simulated document preview container.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-4 border-t border-neutral-800 flex justify-end space-x-3">
+              {viewingDocument.status === 'pending' && (
+                <>
+                  <button
+                    onClick={() => {
+                      handleRejectTopUp(viewingDocument.id);
+                      setViewingDocument(null);
+                    }}
+                    className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Reject POP
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleApproveTopUp(viewingDocument.id);
+                      setViewingDocument(null);
+                    }}
+                    className="px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-xl text-sm font-medium transition-colors"
+                  >
+                    Approve POP
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => setViewingDocument(null)}
+                className="px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white rounded-xl text-sm font-medium transition-colors"
+              >
+                Close Viewer
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Under Review Popup Modal */}
       {showReviewPopup && (
