@@ -2173,7 +2173,7 @@ export default function App() {
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && !isEnteringPin && (
-        <header className="w-full px-4 sm:px-6 py-2 flex items-center justify-between border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl overflow-hidden relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
+        <header className="w-full px-4 sm:px-6 py-2 flex items-center justify-between border-b border-neutral-200 sticky top-0 z-40 bg-white/75 backdrop-blur-xl relative shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
           {/* App Name in Left Corner */}
           <div className="flex items-center space-x-2 relative z-10">
             <AppNameWithCoins className="font-bold text-neutral-900 text-sm tracking-wider uppercase" />
