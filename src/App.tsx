@@ -2182,10 +2182,10 @@ export default function App() {
             {/* Feedback small icon */}
             <button
               onClick={() => setShowFeedbackModal(true)}
-              className="p-1.5 text-neutral-600 hover:text-black transition-colors"
+              className="p-1.5 text-purple-600 hover:text-purple-800 transition-colors"
               title="Feedback"
             >
-              <MessageCircle className="w-4 h-4" />
+              <MessageCircle className="w-4 h-4 text-purple-600" />
             </button>
             
             {/* Facebook small icon */}
@@ -2193,10 +2193,10 @@ export default function App() {
               href="https://www.facebook.com/profile.php?id=61592108856924"
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 text-neutral-600 hover:text-[#1877F2] transition-colors"
+              className="p-1.5 text-[#1877F2] hover:opacity-80 transition-opacity"
               title="Facebook"
             >
-              <Facebook className="w-4 h-4" />
+              <Facebook className="w-4 h-4 text-[#1877F2]" />
             </a>
 
             <div className="h-4 w-[1px] bg-neutral-200 mx-1"></div>
@@ -2208,11 +2208,11 @@ export default function App() {
                   setShowNotifications(true);
                   markAllNotificationsRead();
                 }}
-                className="p-2 rounded-full transition-colors text-neutral-600 hover:bg-neutral-100 hover:text-black relative"
+                className="p-2 rounded-full transition-colors text-amber-600 hover:bg-neutral-100 relative"
                 title="Notifications"
                 aria-label="Notifications"
               >
-                <Bell className="w-5 h-5" />
+                <Bell className="w-5 h-5 text-amber-500" />
                 {unreadCount > 0 && (
                   <span className="absolute top-1 right-1 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
                     {unreadCount}
@@ -2227,13 +2227,13 @@ export default function App() {
                 onClick={() => setActiveScreen('admin')}
                 className={`p-2 rounded-full transition-colors ${
                   activeScreen === 'admin'
-                    ? 'bg-black text-white'
-                    : 'text-neutral-600 hover:bg-neutral-100 hover:text-black'
+                    ? 'bg-neutral-900 text-amber-400 shadow-sm'
+                    : 'text-amber-600 hover:bg-neutral-100'
                 }`}
                 title="Admin Panel"
                 aria-label="Admin Panel"
               >
-                <Shield className="w-5 h-5" />
+                <Shield className="w-5 h-5 text-amber-500" />
               </button>
             )}
 
@@ -5597,10 +5597,10 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-0.5 transition-colors ${
-              activeScreen === 'home' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
+              activeScreen === 'home' ? 'text-indigo-600 font-semibold scale-105' : 'text-neutral-500 hover:text-indigo-600'
             }`}
           >
-            <Briefcase className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-indigo-600" />
             <span className="text-[10px] sm:text-[11px]">GIGs</span>
           </button>
 
@@ -5610,10 +5610,10 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-0.5 transition-colors ${
-              activeScreen === 'wallet' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
+              activeScreen === 'wallet' ? 'text-amber-600 font-semibold scale-105' : 'text-neutral-500 hover:text-amber-600'
             }`}
           >
-            <Wallet className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Wallet className="w-4 h-4 sm:w-5 sm:h-5 text-amber-500" />
             <span className="text-[10px] sm:text-[11px]">Wallet</span>
           </button>
 
@@ -5623,10 +5623,10 @@ export default function App() {
               setActiveChatContactId(null);
             }}
             className={`flex flex-col items-center space-y-0.5 transition-colors ${
-              activeScreen === 'chat' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
+              activeScreen === 'chat' ? 'text-blue-600 font-semibold scale-105' : 'text-neutral-500 hover:text-blue-600'
             }`}
           >
-            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5" />
+            <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
             <span className="text-[10px] sm:text-[11px]">Chat</span>
           </button>
 
@@ -5636,15 +5636,15 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-0.5 transition-all duration-300 ${
-              activeScreen === 'referral' ? 'text-neutral-950 font-bold scale-105' : 'text-neutral-500 hover:text-neutral-900'
+              activeScreen === 'referral' ? 'text-rose-600 font-bold scale-105' : 'text-neutral-500 hover:text-rose-600'
             }`}
           >
             <div className={`p-1 rounded-full transition-all duration-500 ${
               activeScreen === 'referral' 
-                ? 'bg-black text-white shadow-[0_0_15px_rgba(0,0,0,0.15)] ring-2 ring-black/25' 
-                : 'bg-neutral-100 text-neutral-800 hover:bg-neutral-200'
+                ? 'bg-rose-600 text-white shadow-[0_0_15px_rgba(244,63,94,0.3)] ring-2 ring-rose-400/50' 
+                : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
             }`}>
-              <Gift className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 ${activeScreen === 'referral' ? 'scale-110' : ''}`} />
+              <Gift className={`w-4 h-4 sm:w-5 sm:h-5 transition-transform duration-300 text-rose-500 ${activeScreen === 'referral' ? 'scale-110 text-white' : ''}`} />
             </div>
             <span className="text-[9px] sm:text-[10px] uppercase tracking-tight font-bold">Referral</span>
           </button>
@@ -5655,7 +5655,7 @@ export default function App() {
               setWalletStep('overview');
             }}
             className={`flex flex-col items-center space-y-0.5 transition-colors relative ${
-              activeScreen === 'profile' ? 'text-neutral-950 font-semibold scale-105' : 'text-neutral-500 hover:text-neutral-900'
+              activeScreen === 'profile' ? 'text-violet-600 font-semibold scale-105' : 'text-neutral-500 hover:text-violet-600'
             }`}
           >
             <div className="relative">
@@ -5664,12 +5664,12 @@ export default function App() {
                   src={profilePhotoURL}
                   alt="Profile"
                   className={`w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover border ${
-                    activeScreen === 'profile' ? 'border-neutral-950 ring-1 ring-neutral-950/20' : 'border-neutral-300'
+                    activeScreen === 'profile' ? 'border-violet-600 ring-1 ring-violet-500/30' : 'border-neutral-300'
                   }`}
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <UserCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                <UserCircle className="w-4 h-4 sm:w-5 sm:h-5 text-violet-600" />
               )}
               {isProfileLocked && isIdVerified ? (
                 <div className="absolute -top-1 -right-1 bg-emerald-500 text-white rounded-full p-0.5 border border-white shadow-sm" title="Verified Profile & ID">
