@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle } from 'lucide-react';
+import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Check, Bell, X, FileText, CheckCircle2, XCircle, Eye, EyeOff, Award, Users, ExternalLink, Zap, MessageSquare, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Send, Briefcase, LogOut, LogIn, Search, UserCheck, Trash2, UserPlus, MessageCircle, Facebook, User as UserIcon, Settings, Lock, Unlock, Instagram, Twitter, Linkedin, Github, Phone, Coins, Sparkles, ShieldCheck, RefreshCw, AlertCircle, BookOpen, HelpCircle, Gift, UserCircle, MoreVertical } from 'lucide-react';
 import { auth, db } from './lib/firebase';
 // @ts-ignore
 import cashBg from './assets/images/cash_background_1784802114572.jpg';
@@ -247,6 +247,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
   const [adminTab, setAdminTab] = useState<'overview' | 'topups' | 'cashouts' | 'market' | 'feedbacks'>('overview');
+  const [showTopMenu, setShowTopMenu] = useState<boolean>(false);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   const [activeScreen, setActiveScreenState] = useState<Screen>(() => {
@@ -2179,28 +2180,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-1 sm:space-x-2 relative z-10">
-            {/* Feedback small icon */}
-            <button
-              onClick={() => setShowFeedbackModal(true)}
-              className="p-1.5 text-purple-600 hover:text-purple-800 transition-colors"
-              title="Feedback"
-            >
-              <MessageCircle className="w-4 h-4 text-purple-600" />
-            </button>
-            
-            {/* Facebook small icon */}
-            <a
-              href="https://www.facebook.com/profile.php?id=61592108856924"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1.5 text-[#1877F2] hover:opacity-80 transition-opacity"
-              title="Facebook"
-            >
-              <Facebook className="w-4 h-4 text-[#1877F2]" />
-            </a>
-
-            <div className="h-4 w-[1px] bg-neutral-200 mx-1"></div>
-
             {/* Notification Bell */}
             {isLoggedIn && (
               <button
@@ -2237,16 +2216,68 @@ export default function App() {
               </button>
             )}
 
-            {/* Logout Top Corner Icon Button */}
+            {/* 3-Dot Menu Button & Dropdown */}
             {isLoggedIn && (
-              <button
-                onClick={handleLogout}
-                className="p-2 rounded-full transition-colors relative text-neutral-600 hover:bg-neutral-100 hover:text-rose-500"
-                title="Log Out"
-                aria-label="Log Out"
-              >
-                <LogOut className="w-5 h-5" />
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowTopMenu(!showTopMenu)}
+                  className="p-2 rounded-full transition-colors text-neutral-700 hover:bg-neutral-100"
+                  title="Menu"
+                  aria-label="Menu"
+                >
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+
+                {showTopMenu && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-40" 
+                      onClick={() => setShowTopMenu(false)} 
+                    />
+                    <div className="absolute right-0 mt-2 w-48 bg-white border border-neutral-200 rounded-2xl shadow-xl py-2 z-50 animate-fadeIn divide-y divide-neutral-100">
+                      <div className="px-3 py-1.5 text-[10px] font-bold text-neutral-400 uppercase tracking-wider">
+                        Quick Menu
+                      </div>
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowTopMenu(false);
+                            setShowFeedbackModal(true);
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-xs font-medium text-neutral-700 hover:bg-neutral-50 flex items-center space-x-2.5 transition-colors"
+                        >
+                          <MessageCircle className="w-4 h-4 text-purple-600" />
+                          <span>Feedback</span>
+                        </button>
+
+                        <a
+                          href="https://www.facebook.com/profile.php?id=61592108856924"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={() => setShowTopMenu(false)}
+                          className="w-full px-4 py-2.5 text-left text-xs font-medium text-neutral-700 hover:bg-neutral-50 flex items-center space-x-2.5 transition-colors"
+                        >
+                          <Facebook className="w-4 h-4 text-[#1877F2]" />
+                          <span>Facebook</span>
+                        </a>
+                      </div>
+
+                      <div className="py-1">
+                        <button
+                          onClick={() => {
+                            setShowTopMenu(false);
+                            handleLogout();
+                          }}
+                          className="w-full px-4 py-2.5 text-left text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center space-x-2.5 transition-colors"
+                        >
+                          <LogOut className="w-4 h-4 text-rose-500" />
+                          <span>Log Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </header>
