@@ -8,6 +8,7 @@ import { Wallet, Share2, Shield, Home, Plus, Upload, Clock, ArrowLeft, Copy, Che
 import { auth, db } from './lib/firebase';
 // @ts-ignore
 import cashBg from './assets/images/cash_background_1784802114572.jpg';
+import { CelebrationModal } from './components/CelebrationModal';
 import { 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
@@ -789,10 +790,7 @@ export default function App() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showCongrats, setShowCongrats] = useState(false);
   const [showGigCongrats, setShowGigCongrats] = useState(false);
-  
-  // Tour State
-  const [tourStep, setTourStep] = useState(0); // 0 = not started or done
-  
+  const [tourStep, setTourStep] = useState(0);
   // Top-ups and Notifications state
   const [topUps, setTopUps] = useState<TopUpRecord[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
@@ -801,6 +799,23 @@ export default function App() {
   const [processedIds, setProcessedIds] = useState<string[]>([]);
   const [agentCashouts, setAgentCashouts] = useState<AgentCashoutRecord[]>(INITIAL_AGENT_CASHOUTS);
   const [viewingAgentCashout, setViewingAgentCashout] = useState<AgentCashoutRecord | null>(null);
+
+  const [showTopupCongrats, setShowTopupCongrats] = useState<boolean>(false);
+  const [celebratedTopupRecord, setCelebratedTopupRecord] = useState<TopUpRecord | null>(null);
+
+  useEffect(() => {
+    if (!user || isAdminUser) return;
+    const approvedTopups = topUps.filter(t => t.status === 'approved');
+    if (approvedTopups.length > 0) {
+      const celebratedIds = JSON.parse(localStorage.getItem('celebrated_topups_' + user.uid) || '[]');
+      const latestApproved = approvedTopups.find(t => !celebratedIds.includes(t.id));
+      if (latestApproved) {
+        setCelebratedTopupRecord(latestApproved);
+        setShowTopupCongrats(true);
+        localStorage.setItem('celebrated_topups_' + user.uid, JSON.stringify([...celebratedIds, latestApproved.id]));
+      }
+    }
+  }, [topUps, user, isAdminUser]);
 
   // Agent mode state
   const [copiedLinkId, setCopiedLinkId] = useState<string | null>(null);
@@ -2145,31 +2160,11 @@ export default function App() {
         </div>
       )}
 
-      {showGigCongrats && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 overflow-hidden">
-          <div className="bg-white rounded-[32px] p-8 shadow-2xl max-w-sm w-full space-y-6 animate-scaleIn border border-neutral-100 text-center relative">
-            <BlurryCoinsBg opacity={0.1} overlay="bg-white/80" />
-            <div className="relative z-10 space-y-6">
-              <div className="w-20 h-20 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center mx-auto mb-2 rotate-3 shadow-sm border border-emerald-100">
-                <CheckCircle2 className="w-10 h-10" />
-              </div>
-              <div className="space-y-2">
-                <h2 className="text-2xl font-black text-neutral-900 tracking-tight">Gig Published!</h2>
-                <p className="text-sm text-neutral-500 leading-relaxed">
-                  Congratulations! Your gig is now live on the marketplace. Redirecting you to the feed...
-                </p>
-              </div>
-              <div className="flex justify-center">
-                 <div className="flex space-x-1">
-                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-bounce"></div>
-                 </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <CelebrationModal
+        isOpen={showGigCongrats}
+        title="Gig Published!"
+        message="Congratulations! Your gig is now live on the marketplace. Redirecting you to the feed..."
+      />
 
       {/* Top Bar with Feedback, Facebook, Admin and Notification Bell (Hidden on Chat Screen) */}
       {activeScreen !== 'chat' && !isEnteringPin && (
@@ -2389,13 +2384,11 @@ export default function App() {
             </div>
             <div className="relative z-10 w-full max-w-sm bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 p-8 space-y-6">
               {showCongrats ? (
-                <div className="text-center space-y-4 py-8 animate-fadeIn">
-                  <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <CheckCircle2 className="w-8 h-8" />
-                  </div>
-                  <h2 className="text-2xl font-bold text-neutral-900">Congratulations!</h2>
-                  <p className="text-sm text-neutral-500">Your workspace is ready. Redirecting to gigs...</p>
-                </div>
+                <CelebrationModal
+                  isOpen={showCongrats}
+                  title="Congratulations!"
+                  message="Your workspace is ready. Redirecting to gigs..."
+                />
               ) : (
                 <>
                   <div className="text-center space-y-2">
@@ -5550,29 +5543,25 @@ export default function App() {
         </div>
       )}
 
-      {/* Profile Congrats Modal */}
-      {showProfileCongrats && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-md" />
-          <div className="relative bg-white rounded-3xl p-8 max-w-sm w-full text-center space-y-6 shadow-2xl animate-scaleIn">
-            <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2 animate-bounce">
-              <CheckCircle2 className="w-10 h-10 text-emerald-600" />
-            </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold text-neutral-900">Congratulations! 🎉</h2>
-              <p className="text-neutral-500">Your profile has been successfully updated and secured.</p>
-            </div>
-            <div className="pt-4">
-              <button 
-                onClick={() => setShowProfileCongrats(false)}
-                className="w-full py-4 bg-black text-white rounded-2xl font-bold shadow-lg hover:bg-neutral-800 transition-all"
-              >
-                Great, thanks!
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CelebrationModal
+        isOpen={showProfileCongrats}
+        title="Congratulations! 🎉"
+        message="Your profile has been successfully updated and secured."
+        onClose={() => setShowProfileCongrats(false)}
+        buttonText="Great, thanks!"
+      />
+
+      <CelebrationModal
+        isOpen={showTopupCongrats}
+        title="Top-Up Approved! 🎉"
+        message={`Your coin top-up of ${celebratedTopupRecord?.option.label || ''} (${celebratedTopupRecord?.option.price || ''}) has been approved and successfully credited to your wallet!`}
+        onClose={() => {
+          setShowTopupCongrats(false);
+          setActiveScreen('wallet');
+          setWalletStep('overview');
+        }}
+        buttonText="Awesome, view wallet!"
+      />
 
       {/* Feedback Modal */}
       {showFeedbackModal && (

@@ -1,1 +1,68 @@
 @import "tailwindcss";
+
+@keyframes floatUp {
+  0% {
+    transform: translateY(0px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(-450px) scale(1.2);
+    opacity: 0;
+  }
+}
+
+@keyframes coinFall {
+  0% {
+    transform: translateY(0px) rotate(0deg) scale(0.5);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(450px) rotate(720deg) scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes cashFall {
+  0% {
+    transform: translateY(0px) rotate(-15deg) translateX(0px);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(480px) rotate(45deg) translateX(60px);
+    opacity: 0;
+  }
+}
+
+@keyframes spinSlow {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-floatUp {
+  animation: floatUp 3s ease-in-out infinite;
+}
+
+.animate-coinFall {
+  animation: coinFall 2.5s linear infinite;
+}
+
+.animate-cashFall {
+  animation: cashFall 3s ease-in-out infinite;
+}
+
+.animate-spin-slow {
+  animation: spinSlow 8s linear infinite;
+}
