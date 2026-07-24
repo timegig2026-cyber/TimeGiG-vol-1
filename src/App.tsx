@@ -246,6 +246,7 @@ export default function App() {
 
   const [user, setUser] = useState<User | null>(null);
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
+  const [adminTab, setAdminTab] = useState<'overview' | 'topups' | 'cashouts' | 'market' | 'feedbacks'>('overview');
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
 
   const [activeScreen, setActiveScreenState] = useState<Screen>(() => {
@@ -1629,6 +1630,44 @@ export default function App() {
         setTimeout(() => setToastMessage(null), 3000);
       } catch (error) {
         handleFirestoreError(error, OperationType.DELETE, 'gigs (ALL)');
+      }
+    }
+  };
+
+  const handleClearAllTopUps = async () => {
+    if (window.confirm("⚠️ Are you sure you want to delete ALL POP top-up submissions? This cannot be undone.")) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'topups'));
+        if (querySnapshot.empty) {
+          setToastMessage('ℹ️ POP top-up queue is already empty.');
+          setTimeout(() => setToastMessage(null), 3000);
+          return;
+        }
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        setToastMessage('✅ All POP top-ups cleared successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (error) {
+        console.error("Error clearing top-ups:", error);
+      }
+    }
+  };
+
+  const handleClearAllVisits = async () => {
+    if (window.confirm("⚠️ Are you sure you want to delete ALL live visits and visitor logs? This cannot be undone.")) {
+      try {
+        const querySnapshot = await getDocs(collection(db, 'visits'));
+        if (querySnapshot.empty) {
+          setToastMessage('ℹ️ Visit logs are already empty.');
+          setTimeout(() => setToastMessage(null), 3000);
+          return;
+        }
+        const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+        await Promise.all(deletePromises);
+        setToastMessage('✅ All visit logs cleared successfully.');
+        setTimeout(() => setToastMessage(null), 3000);
+      } catch (error) {
+        console.error("Error clearing visits:", error);
       }
     }
   };
@@ -4249,312 +4288,481 @@ export default function App() {
               <span className="text-xs px-3 py-1 bg-neutral-100 text-neutral-800 rounded-full font-medium">Administrator</span>
             </div>
 
-            {/* Profit Balance Block */}
-            <div className="relative overflow-hidden w-full bg-neutral-900 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-amber-500/20">
-              <BlurryCoinsBg opacity={0.35} overlay="bg-gradient-to-r from-neutral-950/80 via-black/60 to-amber-950/50" />
-              <div className="relative z-10 space-y-1.5 flex-1">
-                <span className="text-xs uppercase tracking-wider text-amber-300/80 font-medium block">Coin Top-Up Profit Balance</span>
-                <div className="text-3xl font-bold tracking-tight">R{displayProfit.toFixed(2).replace('.', ',')}</div>
-                <span className="text-[11px] text-neutral-300 block">Total revenue generated from approved coin top-ups</span>
-              </div>
+            {/* Admin Top Bar Menu */}
+            <div className="w-full bg-neutral-100 p-1 rounded-2xl flex items-center space-x-1 overflow-x-auto border border-neutral-200/80 shadow-2xs shrink-0">
               <button
-                onClick={handleResetProfit}
-                className="relative z-10 self-start md:self-auto flex items-center space-x-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 text-amber-300 hover:text-amber-200 text-xs font-semibold rounded-xl border border-neutral-700 hover:border-neutral-600 transition-all select-none shadow-sm cursor-pointer"
+                onClick={() => setAdminTab('overview')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                  adminTab === 'overview' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/60' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50'
+                }`}
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Reset Balance</span>
+                <span>📊 Overview</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('topups')}
+                className={`flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                  adminTab === 'topups' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/60' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50'
+                }`}
+              >
+                <span>💳 POP Top-ups</span>
+                {topUps.filter(t => t.status === 'pending').length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {topUps.filter(t => t.status === 'pending').length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setAdminTab('cashouts')}
+                className={`flex-1 min-w-[110px] py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                  adminTab === 'cashouts' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/60' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50'
+                }`}
+              >
+                <span>💵 Agent Payouts</span>
+                {agentCashouts.filter(a => a.status === 'pending').length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {agentCashouts.filter(a => a.status === 'pending').length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setAdminTab('market')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                  adminTab === 'market' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/60' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50'
+                }`}
+              >
+                <span>🛍️ Market</span>
+              </button>
+              <button
+                onClick={() => setAdminTab('feedbacks')}
+                className={`flex-1 min-w-[100px] py-2 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center space-x-1.5 ${
+                  adminTab === 'feedbacks' ? 'bg-white text-neutral-900 shadow-sm border border-neutral-200/60' : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-200/50'
+                }`}
+              >
+                <span>💬 Feedbacks</span>
+                {feedbacks.length > 0 && (
+                  <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-bold flex items-center justify-center">
+                    {feedbacks.length}
+                  </span>
+                )}
               </button>
             </div>
 
-            {/* Live Telemetry / Monitor Center */}
-            <div className="grid grid-cols-2 gap-4 w-full">
-              {/* Live Online Visits Card */}
-              <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
-                <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
-                <div className="relative z-10 flex items-center justify-between">
-                  <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Live Online Visits</span>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] text-emerald-600 font-bold uppercase">Live</span>
+            {/* Tab 1: Overview */}
+            {adminTab === 'overview' && (
+              <div className="w-full space-y-6 animate-fadeIn">
+                {/* Profit Balance Block */}
+                <div className="relative overflow-hidden w-full bg-neutral-900 text-white p-6 rounded-2xl shadow-md flex flex-col md:flex-row md:items-center md:justify-between gap-4 border border-amber-500/20">
+                  <BlurryCoinsBg opacity={0.35} overlay="bg-gradient-to-r from-neutral-950/80 via-black/60 to-amber-950/50" />
+                  <div className="relative z-10 space-y-1.5 flex-1">
+                    <span className="text-xs uppercase tracking-wider text-amber-300/80 font-medium block">Coin Top-Up Profit Balance</span>
+                    <div className="text-3xl font-bold tracking-tight">R{displayProfit.toFixed(2).replace('.', ',')}</div>
+                    <span className="text-[11px] text-neutral-300 block">Total revenue generated from approved coin top-ups</span>
                   </div>
+                  <button
+                    onClick={handleResetProfit}
+                    className="relative z-10 self-start md:self-auto flex items-center space-x-2 px-4 py-2 bg-neutral-800 hover:bg-neutral-700 active:bg-neutral-900 text-amber-300 hover:text-amber-200 text-xs font-semibold rounded-xl border border-neutral-700 hover:border-neutral-600 transition-all select-none shadow-sm cursor-pointer"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reset Balance</span>
+                  </button>
                 </div>
-                <div className="relative z-10">
-                  <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVisitsCount}</div>
-                  <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Active concurrent visitors on the platform</p>
-                </div>
-              </div>
 
-              {/* Live Online Verified Users Card */}
-              <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
-                <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
-                <div className="relative z-10 flex items-center justify-between">
-                  <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Online Verified</span>
-                  <div className="flex items-center space-x-1.5">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                    </span>
-                    <span className="text-[10px] text-blue-600 font-bold uppercase">Live</span>
-                  </div>
-                </div>
-                <div className="relative z-10">
-                  <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVerifiedUsersCount}</div>
-                  <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Online verified users with completed profiles</p>
-                </div>
-              </div>
-            </div>
-
-            {/* List of Live Online Verified Users */}
-            {liveOnlineVerifiedUsersCount > 0 && (
-              <div className="w-full bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center space-x-1.5">
-                    <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-                    <span>Currently Active Verified Users ({liveOnlineVerifiedUsersCount})</span>
-                  </span>
-                </div>
-                <div className="divide-y divide-blue-100/40">
-                  {liveOnlineVerifiedUsers.map((v, idx) => (
-                    <div key={v.id || idx} className="py-2 flex items-center justify-between text-xs">
-                      <span className="font-semibold text-blue-950">{v.email || 'Anonymous User'}</span>
-                      <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full font-medium">Active now</span>
+                {/* Live Telemetry / Monitor Center */}
+                <div className="grid grid-cols-2 gap-4 w-full">
+                  {/* Live Online Visits Card */}
+                  <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
+                    <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
+                    <div className="relative z-10 flex items-center justify-between">
+                      <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Live Online Visits</span>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        <span className="text-[10px] text-emerald-600 font-bold uppercase">Live</span>
+                      </div>
                     </div>
-                  ))}
+                    <div className="relative z-10">
+                      <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVisitsCount}</div>
+                      <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Active concurrent visitors on the platform</p>
+                    </div>
+                  </div>
+
+                  {/* Live Online Verified Users Card */}
+                  <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200/80 p-5 rounded-2xl flex flex-col justify-between space-y-4 shadow-2xs">
+                    <BlurryCoinsBg opacity={0.12} overlay="bg-white/80" />
+                    <div className="relative z-10 flex items-center justify-between">
+                      <span className="text-[11px] font-bold tracking-wider text-neutral-500 uppercase">Online Verified</span>
+                      <div className="flex items-center space-x-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                        </span>
+                        <span className="text-[10px] text-blue-600 font-bold uppercase">Live</span>
+                      </div>
+                    </div>
+                    <div className="relative z-10">
+                      <div className="text-3xl font-black text-neutral-900 tracking-tight">{liveOnlineVerifiedUsersCount}</div>
+                      <p className="text-[11px] text-neutral-500 mt-1 leading-normal">Online verified users with completed profiles</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* List of Live Online Verified Users */}
+                {liveOnlineVerifiedUsersCount > 0 && (
+                  <div className="w-full bg-blue-50/50 border border-blue-100/60 rounded-2xl p-4 space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-blue-900 uppercase tracking-wider flex items-center space-x-1.5">
+                        <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                        <span>Currently Active Verified Users ({liveOnlineVerifiedUsersCount})</span>
+                      </span>
+                    </div>
+                    <div className="divide-y divide-blue-100/40">
+                      {liveOnlineVerifiedUsers.map((v, idx) => (
+                        <div key={v.id || idx} className="py-2 flex items-center justify-between text-xs">
+                          <span className="font-semibold text-blue-950">{v.email || 'Anonymous User'}</span>
+                          <span className="text-[10px] text-blue-700 bg-blue-100 px-2 py-0.5 rounded-full font-medium">Active now</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Visits & Visitor Log Monitor */}
+                <div className="w-full bg-white border border-neutral-200 rounded-2xl p-5 space-y-4 shadow-xs">
+                  <div className="flex items-center justify-between pb-3 border-b border-neutral-100">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-2 bg-neutral-100 text-neutral-800 rounded-xl">
+                        <Users className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-neutral-900">Live Visits & Visitor Log</h3>
+                        <p className="text-[11px] text-neutral-500">Real-time tracking of platform visitors and sessions</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold">
+                        {liveOnlineVisitsCount} Online Now
+                      </span>
+                      {visits.length > 0 && (
+                        <button
+                          onClick={handleClearAllVisits}
+                          className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-full text-[11px] font-semibold flex items-center space-x-1 transition-colors"
+                          title="Clear Visit Logs"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>Clear Logs</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+                    {visits.length === 0 ? (
+                      <div className="text-center py-6 text-neutral-400 text-xs">
+                        No visit sessions recorded yet.
+                      </div>
+                    ) : (
+                      visits.map((visit, idx) => {
+                        const now = Date.now();
+                        const lastActiveMs = visit.lastActiveAt?.toMillis ? visit.lastActiveAt.toMillis() : (visit.lastActiveAt ? new Date(visit.lastActiveAt).getTime() : 0);
+                        const isOnline = (now - lastActiveMs) < 45000;
+                        const formattedTime = lastActiveMs ? new Date(lastActiveMs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Unknown';
+
+                        return (
+                          <div key={visit.id || idx} className="flex items-center justify-between p-3 bg-neutral-50 hover:bg-neutral-100/85 transition-colors rounded-xl border border-neutral-100 text-xs">
+                            <div className="flex items-center space-x-3 min-w-0">
+                              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-300'}`} />
+                              <div className="min-w-0">
+                                <div className="font-bold text-neutral-900 truncate flex items-center space-x-2">
+                                  <span>{visit.email || 'Anonymous Guest / Visitor'}</span>
+                                  {visit.isVerified && (
+                                    <span className="px-1.5 py-0.2 bg-blue-100 text-blue-800 text-[9px] font-bold rounded-full">Verified</span>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-neutral-400 font-mono truncate">
+                                  Session ID: {visit.id}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0 space-y-0.5">
+                              <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold ${isOnline ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-600'}`}>
+                                {isOnline ? 'Active Now' : 'Offline'}
+                              </span>
+                              <div className="text-[10px] text-neutral-400 flex items-center justify-end space-x-1">
+                                <Clock className="w-3 h-3" />
+                                <span>{formattedTime}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Top-up Submissions Review Queue */}
-            <div className="w-full space-y-3">
-              <h2 className="text-sm font-medium text-neutral-700">POP Review Queue</h2>
-              {topUps.length === 0 ? (
-                <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
-                  <BlurryCoinsBg opacity={0.15} overlay="bg-neutral-50/80" />
-                  <div className="relative z-10">
-                    No top-up submissions yet.
+            {/* Tab 2: POP Top-ups */}
+            {adminTab === 'topups' && (
+              <div className="w-full space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-neutral-900">POP Review Queue ({topUps.length})</h2>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xs text-neutral-500">Review and verify coin purchase proofs of payment</span>
+                    {topUps.length > 0 && (
+                      <button
+                        onClick={handleClearAllTopUps}
+                        className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-full text-[11px] font-semibold flex items-center space-x-1 transition-colors"
+                        title="Clear All Top-ups"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        <span>Clear All</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <div className="space-y-3 w-full">
-                  {topUps.map((item) => {
-                    const userProfile = item.userId ? usersMap[item.userId] : null;
-                    const userEmail = userProfile?.email || item.userEmail || 'Anonymous';
-                    const photoURL = userProfile?.photoURL;
-                    const userFullName = userProfile ? `${userProfile.firstName || ''} ${userProfile.surname || ''}`.trim() : null;
+                {topUps.length === 0 ? (
+                  <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
+                    <BlurryCoinsBg opacity={0.15} overlay="bg-neutral-50/80" />
+                    <div className="relative z-10">
+                      No top-up submissions yet.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 w-full">
+                    {topUps.map((item) => {
+                      const userProfile = item.userId ? usersMap[item.userId] : null;
+                      const userEmail = userProfile?.email || item.userEmail || 'Anonymous';
+                      const photoURL = userProfile?.photoURL;
+                      const userFullName = userProfile ? `${userProfile.firstName || ''} ${userProfile.surname || ''}`.trim() : null;
 
-                    return (
-                      <div key={item.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
-                        <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
-                        <div className="relative z-10 flex flex-col space-y-3">
-                          {/* User Profile Row */}
-                          <div className="flex items-center space-x-3 pb-3 border-b border-neutral-100">
-                            {photoURL ? (
-                              <img 
-                                src={photoURL} 
-                                alt="User Profile" 
-                                referrerPolicy="no-referrer"
-                                className="w-10 h-10 rounded-full object-cover border border-neutral-200 shadow-xs shrink-0" 
-                              />
-                            ) : (
-                              <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center border border-neutral-200 shadow-xs shrink-0">
-                                <UserIcon className="w-5 h-5 text-neutral-400" />
+                      return (
+                        <div key={item.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
+                          <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
+                          <div className="relative z-10 flex flex-col space-y-3">
+                            {/* User Profile Row */}
+                            <div className="flex items-center space-x-3 pb-3 border-b border-neutral-100">
+                              {photoURL ? (
+                                <img 
+                                  src={photoURL} 
+                                  alt="User Profile" 
+                                  referrerPolicy="no-referrer"
+                                  className="w-10 h-10 rounded-full object-cover border border-neutral-200 shadow-xs shrink-0" 
+                                />
+                              ) : (
+                                <div className="w-10 h-10 rounded-full bg-neutral-100 flex items-center justify-center border border-neutral-200 shadow-xs shrink-0">
+                                  <UserIcon className="w-5 h-5 text-neutral-400" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-xs font-bold text-neutral-800 truncate">
+                                  {userFullName || 'Anonymous User'}
+                                </div>
+                                <div className="text-[11px] text-neutral-500 truncate select-all font-mono">
+                                  {userEmail}
+                                </div>
                               </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold text-neutral-800 truncate">
-                                {userFullName || 'Anonymous User'}
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <div className="font-semibold text-neutral-900 text-sm">Package: {item.option.label} ({item.option.price})</div>
+                                <div className="text-xs text-neutral-500">Submitted at {item.date}</div>
                               </div>
-                              <div className="text-[11px] text-neutral-500 truncate select-all font-mono">
-                                {userEmail}
+                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${
+                                item.status === 'approved' ? 'bg-green-100 text-green-800' :
+                                item.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                              }`}>
+                                {item.status}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
+                              <div className="flex items-center space-x-2 text-xs text-neutral-600 truncate max-w-[200px]">
+                                <FileText className="w-4 h-4 text-neutral-400 shrink-0" />
+                                <span className="truncate">{item.fileName}</span>
+                              </div>
+
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => setViewingDocument(item)}
+                                  className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View</span>
+                                </button>
+
+                                {item.status === 'pending' && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveTopUp(item.id)}
+                                      className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                                    >
+                                      <Check className="w-3.5 h-3.5" />
+                                      <span>Approve</span>
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectTopUp(item.id)}
+                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      <span>Reject</span>
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
 
+            {/* Tab 3: Agent Payouts */}
+            {adminTab === 'cashouts' && (
+              <div className="w-full space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-neutral-900">Agent Cashouts & Reward Payout Requests ({agentCashouts.length})</h2>
+                  <span className="text-xs text-neutral-500">Manage agent earnings and withdrawal requests</span>
+                </div>
+                {agentCashouts.length === 0 ? (
+                  <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
+                    <BlurryCoinsBg opacity={0.15} overlay="bg-neutral-50/80" />
+                    <div className="relative z-10">
+                      No agent cashout requests yet.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 w-full">
+                    {agentCashouts.map((agent) => (
+                      <div key={agent.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
+                        <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
+                        <div className="relative z-10 flex flex-col space-y-3">
                           <div className="flex items-center justify-between">
-                            <div>
-                              <div className="font-semibold text-neutral-900 text-sm">Package: {item.option.label} ({item.option.price})</div>
-                              <div className="text-xs text-neutral-500">Submitted at {item.date}</div>
+                            <div className="flex items-center space-x-3">
+                              <img
+                                src={agent.avatarUrl}
+                                alt={agent.agentName}
+                                className="w-10 h-10 rounded-full object-cover border border-neutral-200"
+                                referrerPolicy="no-referrer"
+                              />
+                              <div>
+                                <div className="font-semibold text-neutral-900 text-sm">{agent.agentName}</div>
+                                <div className="text-xs text-neutral-500">Cashout Amount: <strong className="text-neutral-900">{agent.cashoutAmount}</strong></div>
+                              </div>
                             </div>
                             <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${
-                              item.status === 'approved' ? 'bg-green-100 text-green-800' :
-                              item.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
+                              agent.status === 'approved' ? 'bg-green-100 text-green-800' :
+                              agent.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
                             }`}>
-                              {item.status}
+                              {agent.status}
                             </span>
                           </div>
 
-                        <div className="flex items-center justify-between pt-2 border-t border-neutral-100">
-                          <div className="flex items-center space-x-2 text-xs text-neutral-600 truncate max-w-[200px]">
-                            <FileText className="w-4 h-4 text-neutral-400 shrink-0" />
-                            <span className="truncate">{item.fileName}</span>
-                          </div>
-
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setViewingDocument(item)}
-                              className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              <span>View</span>
-                            </button>
-
-                            {item.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleApproveTopUp(item.id)}
-                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>Approve</span>
-                                </button>
-                                <button
-                                  onClick={() => handleRejectTopUp(item.id)}
-                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                  <span>Reject</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                </div>
-              )}
-            </div>
-
-            {/* Market Management */}
-            <div className="w-full space-y-3 pt-4 border-t border-neutral-200">
-              <h2 className="text-sm font-medium text-neutral-700 italic">Market Management</h2>
-              <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col space-y-3 shadow-xs">
-                <div className="flex items-start space-x-3">
-                  <div className="bg-red-100 p-2 rounded-lg">
-                    <Trash2 className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-red-900">Clear Market Gigs</div>
-                    <p className="text-[11px] text-red-700/80 mt-0.5 leading-relaxed">
-                      Delete every active gig post currently published on the market. This is an administrative cleanup tool and cannot be reversed.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleClearAllGigs}
-                  className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm active:scale-[0.98]"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Remove All Gigs from Market</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Agent Cashout & Referral Reward Payout Requests */}
-            <div className="w-full space-y-3 pt-4 border-t border-neutral-200">
-              <h2 className="text-sm font-medium text-neutral-700">Agent Cashout & Reward Payout Requests</h2>
-              {agentCashouts.length === 0 ? (
-                <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
-                  <BlurryCoinsBg opacity={0.15} overlay="bg-neutral-50/80" />
-                  <div className="relative z-10">
-                    No agent cashout requests yet.
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 w-full">
-                  {agentCashouts.map((agent) => (
-                    <div key={agent.id} className="relative overflow-hidden bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-3 shadow-xs">
-                      <BlurryCoinsBg opacity={0.15} overlay="bg-white/90" />
-                      <div className="relative z-10 flex flex-col space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <img
-                              src={agent.avatarUrl}
-                              alt={agent.agentName}
-                              className="w-10 h-10 rounded-full object-cover border border-neutral-200"
-                              referrerPolicy="no-referrer"
-                            />
+                          <div className="flex items-center justify-between pt-2 border-t border-neutral-100 text-xs text-neutral-600">
                             <div>
-                              <div className="font-semibold text-neutral-900 text-sm">{agent.agentName}</div>
-                              <div className="text-xs text-neutral-500">Cashout Amount: <strong className="text-neutral-900">{agent.cashoutAmount}</strong></div>
+                              <span>Completed Box: </span>
+                              <strong className="text-neutral-900">{agent.rewardBoxCompleted}</strong>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => setViewingAgentCashout(agent)}
+                                className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                              >
+                                <Users className="w-3.5 h-3.5" />
+                                <span>View Agent Profile & Bank</span>
+                              </button>
+
+                              {agent.status === 'pending' && (
+                                <>
+                                  <button
+                                    onClick={() => handleApproveCashout(agent.id)}
+                                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                                  >
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Pay Out</span>
+                                  </button>
+                                  <button
+                                    onClick={() => handleRejectCashout(agent.id)}
+                                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
+                                  >
+                                    <X className="w-3.5 h-3.5" />
+                                    <span>Reject</span>
+                                  </button>
+                                </>
+                              )}
                             </div>
                           </div>
-                          <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${
-                            agent.status === 'approved' ? 'bg-green-100 text-green-800' :
-                            agent.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'
-                          }`}>
-                            {agent.status}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between pt-2 border-t border-neutral-100 text-xs text-neutral-600">
-                          <div>
-                            <span>Completed Box: </span>
-                            <strong className="text-neutral-900">{agent.rewardBoxCompleted}</strong>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => setViewingAgentCashout(agent)}
-                              className="px-3 py-1.5 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                            >
-                              <Users className="w-3.5 h-3.5" />
-                              <span>View Agent Profile & Bank</span>
-                            </button>
-
-                            {agent.status === 'pending' && (
-                              <>
-                                <button
-                                  onClick={() => handleApproveCashout(agent.id)}
-                                  className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>Pay Out</span>
-                                </button>
-                                <button
-                                  onClick={() => handleRejectCashout(agent.id)}
-                                  className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-medium flex items-center space-x-1 transition-colors"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                  <span>Reject</span>
-                                </button>
-                              </>
-                            )}
-                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* User Feedbacks Section */}
-            <div className="w-full space-y-3 pt-4 border-t border-neutral-200">
-              <h2 className="text-sm font-medium text-neutral-700">User Feedbacks</h2>
-              {feedbacks.length === 0 ? (
-                <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
-                  <div className="relative z-10">
-                    No feedbacks submitted yet.
+                    ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Tab 4: Market */}
+            {adminTab === 'market' && (
+              <div className="w-full space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-neutral-900">Market Management</h2>
+                  <span className="text-xs text-neutral-500">Global moderation tools</span>
                 </div>
-              ) : (
-                <div className="space-y-3 w-full">
-                  {feedbacks.map((item) => (
-                    <div key={item.id} className="bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-2 shadow-xs">
-                      <div className="flex justify-between items-start">
-                        <span className="font-semibold text-neutral-900 text-sm">{item.user}</span>
-                        <span className="text-xs text-neutral-500">{item.date}</span>
-                      </div>
-                      <p className="text-sm text-neutral-700 whitespace-pre-wrap">{item.text}</p>
+                <div className="bg-red-50 border border-red-100 rounded-xl p-5 flex flex-col space-y-3 shadow-xs">
+                  <div className="flex items-start space-x-3">
+                    <div className="bg-red-100 p-2.5 rounded-lg">
+                      <Trash2 className="w-5 h-5 text-red-600" />
                     </div>
-                  ))}
+                    <div>
+                      <div className="text-sm font-semibold text-red-900">Clear Market Gigs</div>
+                      <p className="text-xs text-red-700/80 mt-1 leading-relaxed">
+                        Delete every active gig post currently published on the market. This is an administrative cleanup tool and cannot be reversed.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleClearAllGigs}
+                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 transition-all shadow-sm active:scale-[0.98]"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    <span>Remove All Gigs from Market</span>
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {/* Tab 5: Feedbacks */}
+            {adminTab === 'feedbacks' && (
+              <div className="w-full space-y-4 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-neutral-900">User Feedbacks ({feedbacks.length})</h2>
+                  <span className="text-xs text-neutral-500">Platform feedback and inquiries</span>
+                </div>
+                {feedbacks.length === 0 ? (
+                  <div className="relative overflow-hidden bg-neutral-50 border border-neutral-200 rounded-2xl p-8 text-center text-neutral-400 text-xs shadow-xs">
+                    <div className="relative z-10">
+                      No feedbacks submitted yet.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3 w-full">
+                    {feedbacks.map((item) => (
+                      <div key={item.id} className="bg-white border border-neutral-200 p-4 rounded-xl flex flex-col space-y-2 shadow-xs">
+                        <div className="flex justify-between items-start">
+                          <span className="font-semibold text-neutral-900 text-sm">{item.user}</span>
+                          <span className="text-xs text-neutral-500">{item.date}</span>
+                        </div>
+                        <p className="text-sm text-neutral-700 whitespace-pre-wrap">{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </main>
